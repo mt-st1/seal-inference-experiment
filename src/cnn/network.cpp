@@ -12,7 +12,7 @@ Network::~Network() {}
  */
 types::double2D Network::predict(types::double4D& x_4d) {
   types::double2D x_2d;
-  size_t input_dim = 4;
+  bool is_flattened = false;
 
   using cnn::ELayerType;
   for (auto layer_it = layers_.begin(); layer_it != layers_.end();) {
@@ -22,15 +22,15 @@ types::double2D Network::predict(types::double4D& x_4d) {
       case ACTIVATION:
       case BATCH_NORM:
       case LINEAR:
-        if (input_dim == 2) {
-          (*layer_it)->forward(x_2d);
-        } else {
+        if (!is_flattened) {
           (*layer_it)->forward(x_4d);
+        } else {
+          (*layer_it)->forward(x_2d);
         }
         break;
       case FLATTEN:
         (*layer_it)->forward(x_4d, x_2d);
-        input_dim = 2;
+        is_flattened = true;
         break;
       default:
         break;
