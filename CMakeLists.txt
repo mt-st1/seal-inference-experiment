@@ -39,11 +39,6 @@ add_executable(example
   src/utils/constants.cpp
   src/utils/helper.cpp
 )
-add_executable(conv2d_test
-  src/conv2d_test.cpp
-  src/utils/constants.cpp
-  src/utils/helper.cpp
-)
 add_executable(network_sample
   src/network_sample.cpp
   src/utils/constants.cpp
@@ -57,9 +52,6 @@ target_link_libraries(gen_keys
 target_link_libraries(example
   SEAL::seal
 )
-target_link_libraries(conv2d_test
-  SEAL::seal
-)
 target_link_libraries(network_sample
   SEAL::seal
   cnn
@@ -70,7 +62,6 @@ add_subdirectory(src/cnn)
 set(TARGETS
   gen_keys
   example
-  conv2d_test
   network_sample
 )
 
