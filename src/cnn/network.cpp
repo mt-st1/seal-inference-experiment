@@ -30,6 +30,8 @@ types::double2D Network::predict(types::double4D& x_4d) {
         break;
       case FLATTEN:
         (*layer_it)->forward(x_4d, x_2d);
+        x_4d.clear();
+        x_4d.shrink_to_fit();
         is_flattened = true;
         break;
       default:
