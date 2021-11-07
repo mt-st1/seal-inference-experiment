@@ -4,7 +4,7 @@ project(seal-experiment VERSION 1.0.0 LANGUAGES CXX)
 
 find_package(OpenMP REQUIRED)
 find_package(SEAL 3.6 REQUIRED)
-find_package(Eigen3 3.4.0 REQUIRED NO_MODULE)
+find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
 include_directories(${PROJECT_SOURCE_DIR}/src)
 

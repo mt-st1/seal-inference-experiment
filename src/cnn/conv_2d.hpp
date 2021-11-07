@@ -9,8 +9,8 @@ public:
   Conv2D(
     const types::double4D& filters,
     const std::vector<double> biases,
-    const std::size_t stride = 1,
-    const std::size_t padding = 0
+    const std::pair<std::size_t, std::size_t> stride = {1, 1},
+    const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding = {"", {0, 0}}
   );
   ~Conv2D();
 
@@ -19,8 +19,12 @@ public:
 private:
   types::double4D filters_;  // form of [FN, C, FH, FW]
   std::vector<double> biases_;  // form of [FN]
-  std::size_t stride_;
-  std::size_t padding_;
+  std::pair<std::size_t, std::size_t> stride_;
+  std::pair<std::string, std::pair<std::size_t, std::size_t>> padding_;
+  std::size_t pad_top_;
+  std::size_t pad_btm_;
+  std::size_t pad_left_;
+  std::size_t pad_right_;
 };
 
 } // cnn

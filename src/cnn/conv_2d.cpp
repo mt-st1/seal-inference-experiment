@@ -1,23 +1,67 @@
 #include "conv_2d.hpp"
+#include "util.hpp"
+
+#include <Eigen/Dense>
+
+using std::size_t;
 
 namespace cnn {
 
 Conv2D::Conv2D(
   const types::double4D& filters,
   const std::vector<double> biases,
-  const std::size_t stride,
-  const std::size_t padding
+  const std::pair<std::size_t, std::size_t> stride,
+  const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding
 ) : Layer(ELayerType::CONV_2D),
     filters_(filters),
     biases_(biases),
     stride_(stride),
-    padding_(padding)
-  {}
+    padding_(padding) {
+      if (padding.first.empty()) {
+        pad_top_ = padding.second.first;
+        pad_btm_ = padding.second.first;
+        pad_left_ = padding.second.second;
+        pad_right_ = padding.second.second;
+      } else if (padding.first == "valid") {
+        pad_top_ = 0; pad_btm_ = 0; pad_left_ = 0; pad_right_ = 0;
+      } else if (padding.first == "same") {
+        assert(stride_.first == 1 && stride_.second == 1);
+        const size_t fh = filters_.at(0).at(0).size(), fw = filters_.at(0).at(0).at(0).size();
+        pad_top_ = (fh - 1) / 2;
+        pad_btm_ = fh - pad_top_ - 1;
+        pad_left_ = (fw - 1) / 2;
+        pad_right_ = fw - pad_left_ - 1;
+      }
+    }
 Conv2D::~Conv2D() {}
 
 void Conv2D::forward(types::double4D& x) const {
-  // NOTE: This is temporary implementation
-  std::cout << __PRETTY_FUNCTION__ << " is called." << std::endl;
+  const size_t batch_size = x.size(), ih = x.at(0).at(0).size(), iw = x.at(0).at(0).at(0).size();
+  const size_t fn = filters_.size(), fh = filters_.at(0).at(0).size(), fw = filters_.at(0).at(0).at(0).size();
+  const size_t oh = static_cast<int>(((ih + pad_top_ + pad_btm_ - fh) / stride_.first) +1),
+               ow = static_cast<int>(((iw + pad_left_ + pad_right_ - fw) / stride_.second) +1);
+
+  types::double4D padded_x = util::apply_zero_padding(x, pad_top_, pad_btm_, pad_left_, pad_right_);
+
+  auto col = util::im2col(padded_x, fh, fw, oh, ow, stride_); // [N*OH*OW, IC*FH*FW]
+  types::double2D flattened_filters = util::flatten4DVectorTo2D(filters_);
+  auto col_filters = util::convertToEigenMatrix(flattened_filters); // [FN, IC*FH*FW]
+
+  auto wx_matrix = col * col_filters.transpose();
+
+  std::vector<double> biases_copy(biases_.size());
+  std::copy(biases_.begin(), biases_.end(), biases_copy.begin());
+  auto bias_vec = util::convertToEigenVector(biases_copy);
+
+  Eigen::MatrixXd y_matrix(wx_matrix.rows(), wx_matrix.cols()); // [N*OH*OW, FN]
+  for (size_t i = 0; i < y_matrix.rows(); ++i) {
+    y_matrix.row(i) = wx_matrix.row(i) + bias_vec.transpose();
+  }
+
+  y_matrix.transposeInPlace(); // [FN, N*OH*OW]
+
+  types::double2D y_2d_vec = util::convertToDouble2D(y_matrix);
+  x = util::reshape2DVectorTo4D(y_2d_vec, batch_size, fn, oh, ow);
 }
 
 } // cnn

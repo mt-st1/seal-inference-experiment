@@ -11,10 +11,16 @@ template <typename T>
 using vector3D = std::vector<std::vector<std::vector<T>>>;
 template <typename T>
 using vector4D = std::vector<std::vector<std::vector<std::vector<T>>>>;
+template <typename T>
+using vector5D = std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>;
+template <typename T>
+using vector6D = std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
 
 using double2D = vector2D<double>;
 using double3D = vector3D<double>;
 using double4D = vector4D<double>;
+using double5D = vector5D<double>;
+using double6D = vector6D<double>;
 
 using Plaintext2D = vector2D<seal::Plaintext>;
 using Plaintext3D = vector3D<seal::Plaintext>;
