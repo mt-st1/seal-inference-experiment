@@ -10,8 +10,8 @@ Network::~Network() {}
  * @param x_4d input images in the form of [N, C, H, W]
  * @return prediction outputs in the form of [N, CLASS_NUM]
  */
-types::double2D Network::predict(types::double4D& x_4d) {
-  types::double2D x_2d;
+types::double2d Network::predict(types::double4d& x_4d) {
+  types::double2d x_2d;
   bool is_flattened = false;
 
   using cnn::ELayerType;

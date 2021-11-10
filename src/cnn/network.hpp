@@ -11,7 +11,7 @@ public:
   Network();
   ~Network();
 
-  types::double2D predict(types::double4D& x_4d);
+  types::double2d predict(types::double4d& x_4d);
 
   void add_layer(std::shared_ptr<Layer> layer) {
     layers_.push_back(layer);

@@ -7,8 +7,8 @@ using std::size_t;
 
 namespace cnn {
 
-Conv2D::Conv2D(
-  const types::double4D& filters,
+Conv2d::Conv2d(
+  const types::double4d& filters,
   const std::vector<double> biases,
   const std::pair<std::size_t, std::size_t> stride,
   const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding
@@ -33,18 +33,18 @@ Conv2D::Conv2D(
         pad_right_ = fw - pad_left_ - 1;
       }
     }
-Conv2D::~Conv2D() {}
+Conv2d::~Conv2d() {}
 
-void Conv2D::forward(types::double4D& x) const {
+void Conv2d::forward(types::double4d& x) const {
   const size_t batch_size = x.size(), ih = x.at(0).at(0).size(), iw = x.at(0).at(0).at(0).size();
   const size_t fn = filters_.size(), fh = filters_.at(0).at(0).size(), fw = filters_.at(0).at(0).at(0).size();
   const size_t oh = static_cast<int>(((ih + pad_top_ + pad_btm_ - fh) / stride_.first) +1),
                ow = static_cast<int>(((iw + pad_left_ + pad_right_ - fw) / stride_.second) +1);
 
-  types::double4D padded_x = util::apply_zero_padding(x, pad_top_, pad_btm_, pad_left_, pad_right_);
+  types::double4d padded_x = util::apply_zero_padding(x, pad_top_, pad_btm_, pad_left_, pad_right_);
 
   auto col = util::im2col(padded_x, fh, fw, oh, ow, stride_); // [N*OH*OW, IC*FH*FW]
-  types::double2D flattened_filters = util::flatten4DVectorTo2D(filters_);
+  types::double2d flattened_filters = util::flatten4DVectorTo2D(filters_);
   auto col_filters = util::convertToEigenMatrix(flattened_filters); // [FN, IC*FH*FW]
 
   auto wx_matrix = col * col_filters.transpose();
@@ -60,7 +60,7 @@ void Conv2D::forward(types::double4D& x) const {
 
   y_matrix.transposeInPlace(); // [FN, N*OH*OW]
 
-  types::double2D y_2d_vec = util::convertToDouble2D(y_matrix);
+  types::double2d y_2d_vec = util::convertToDouble2D(y_matrix);
   x = util::reshape2DVectorTo4D(y_2d_vec, batch_size, fn, oh, ow);
 }
 
@@ -69,8 +69,8 @@ void Conv2D::forward(types::double4D& x) const {
 
 namespace cnn::encrypted {
 
-Conv2D::Conv2D(
-  const types::Plaintext3D& filters_pts,
+Conv2d::Conv2d(
+  const types::Plaintext3d& filters_pts,
   const std::vector<seal::Plaintext>& biases_pts,
   const std::vector<int>& filter_rotation_map,
   const std::shared_ptr<helper::SealTool>& seal_tool
@@ -79,9 +79,9 @@ Conv2D::Conv2D(
     biases_pts_(biases_pts),
     filter_rotation_map_(filter_rotation_map)
   {}
-Conv2D::~Conv2D() {}
+Conv2d::~Conv2d() {}
 
-void Conv2D::forward(std::vector<seal::Ciphertext>& x_cts, std::vector<seal::Ciphertext>& y_cts) {
+void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts, std::vector<seal::Ciphertext>& y_cts) {
   const size_t filter_count = filters_pts_.size();
   const size_t input_channel_size = x_cts.size();
   const size_t filter_hw_size = filters_pts_.at(0).at(0).size();

@@ -26,8 +26,8 @@ constexpr size_t PADDING =  0;
 constexpr size_t OUTPUT_H = std::floor((static_cast<double>(INPUT_H + 2 * PADDING - FILTER_H) / STRIDE) + 1);
 constexpr size_t OUTPUT_W = std::floor((static_cast<double>(INPUT_W + 2 * PADDING - FILTER_W) / STRIDE) + 1);
 
-types::double4D generate_inputs(const size_t& n, const size_t& c, const size_t& h, const size_t w) {
-  types::double4D inputs(n, types::double3D(c, types::double2D(h, vector<double>(w))));
+types::double4d generate_inputs(const size_t& n, const size_t& c, const size_t& h, const size_t w) {
+  types::double4d inputs(n, types::double3d(c, types::double2d(h, vector<double>(w))));
 
   size_t input_hw_size = h * w;
   double input_cur = 0.0;
@@ -50,8 +50,8 @@ types::double4D generate_inputs(const size_t& n, const size_t& c, const size_t& 
   return inputs;
 }
 
-types::double4D generate_filters(const size_t& fn, const size_t& c, const size_t& fh, const size_t fw) {
-  types::double4D filters(fn, types::double3D(c, types::double2D(fh, vector<double>(fw))));
+types::double4d generate_filters(const size_t& fn, const size_t& c, const size_t& fh, const size_t fw) {
+  types::double4d filters(fn, types::double3d(c, types::double2d(fh, vector<double>(fw))));
 
   size_t filter_cur = 1;
 
@@ -73,9 +73,9 @@ types::double4D generate_filters(const size_t& fn, const size_t& c, const size_t
 }
 
 template <typename T>
-types::vector3D<T> flatten_images_per_channel(const types::vector4D<T>& images) {
+types::vector3d<T> flatten_images_per_channel(const types::vector4d<T>& images) {
   size_t n = images.size(), c = images.at(0).size(), h = images.at(0).at(0).size(), w = images.at(0).at(0).at(0).size();
-  types::vector3D<T> result(n, types::double2D(c, vector<double>(h * w)));
+  types::vector3d<T> result(n, types::double2d(c, vector<double>(h * w)));
 
   for (size_t n_i = 0; n_i < n; ++n_i) {
     for (size_t c_i = 0; c_i < c; ++c_i) {
@@ -133,14 +133,14 @@ int main(int argc, char* argv[]) {
 
   // Normal prediction
   {
-    types::double4D images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
-    types::double4D filters = generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
+    types::double4d images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
+    types::double4d filters = generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
     vector<double> biases(FILTER_N, 0);
 
     cnn::Network network;
-    network.add_layer(std::make_shared<cnn::Conv2D>(filters, biases));
+    network.add_layer(std::make_shared<cnn::Conv2d>(filters, biases));
     network.add_layer(std::make_shared<cnn::Flatten>());
-    types::double2D pred_results = network.predict(images);
+    types::double2d pred_results = network.predict(images);
 
     for (size_t i = 0; i < pred_results.size(); ++i) {
       for (size_t j = 0; j < pred_results.at(0).size(); ++j) {
@@ -152,13 +152,13 @@ int main(int argc, char* argv[]) {
 
   // Encrypted prediction
   {
-    types::double4D images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
-    types::double4D filters = generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
+    types::double4d images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
+    types::double4d filters = generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
     vector<double> biases(FILTER_N, 0);
 
-    types::double3D flattened_hw_inputs = flatten_images_per_channel<double>(images);
+    types::double3d flattened_hw_inputs = flatten_images_per_channel<double>(images);
     seal::Plaintext pt;
-    types::Ciphertext2D inputs_cts(INPUT_N, vector<seal::Ciphertext>(INPUT_C));
+    types::Ciphertext2d inputs_cts(INPUT_N, vector<seal::Ciphertext>(INPUT_C));
     for (size_t in; in < INPUT_N; ++in) {
       for (size_t ic; ic < INPUT_C; ++ic) {
         encoder.encode(flattened_hw_inputs[in][ic], scale, pt);
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
     }
 
     size_t filter_hw_size = FILTER_H * FILTER_W;
-    types::double4D slot_filters_values(FILTER_N, types::double3D(INPUT_C, types::double2D(filter_hw_size, vector<double>(slot_count, 0))));
+    types::double4d slot_filters_values(FILTER_N, types::double3d(INPUT_C, types::double2d(filter_hw_size, vector<double>(slot_count, 0))));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
       for (size_t ic = 0; ic < INPUT_C; ++ic) {
         for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
         }
       }
     }
-    types::Plaintext3D filters_pts(FILTER_N, types::Plaintext2D(INPUT_C, vector<seal::Plaintext>(filter_hw_size)));
+    types::Plaintext3d filters_pts(FILTER_N, types::Plaintext2d(INPUT_C, vector<seal::Plaintext>(filter_hw_size)));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
       for (size_t ic = 0; ic < INPUT_C; ++ic) {
         for (size_t i = 0; i < filter_hw_size; ++i) {
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    types::double2D slot_biases_values(FILTER_N, vector<double>(slot_count, 0));
+    types::double2d slot_biases_values(FILTER_N, vector<double>(slot_count, 0));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
       for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
         for (size_t ow = 0; ow < OUTPUT_W; ++ow) {
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
     shared_ptr<helper::SealTool> seal_tool = std::make_shared<helper::SealTool>(evaluator, *relin_keys, *galois_keys, slot_count, scale);
 
     cnn::encrypted::Network enc_network;
-    enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2D>(filters_pts, biases_pts, filter_rotation_map, seal_tool));
+    enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(filters_pts, biases_pts, filter_rotation_map, seal_tool));
     enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(seal_tool));
     for (size_t i = 0; i < INPUT_N; ++i) {
       seal::Ciphertext enc_pred_result = enc_network.predict(inputs_cts[i]);

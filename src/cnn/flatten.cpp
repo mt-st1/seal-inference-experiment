@@ -5,7 +5,7 @@ namespace cnn {
 Flatten::Flatten() : Layer(ELayerType::FLATTEN) {}
 Flatten::~Flatten() {}
 
-void Flatten::forward(types::double4D& x, types::double2D& y) const {
+void Flatten::forward(types::double4d& x, types::double2d& y) const {
   y.reserve(x.size());
   size_t units_size = x.at(0).size() * x.at(0).at(0).size() * x.at(0).at(0).at(0).size();
   std::vector<double> units;

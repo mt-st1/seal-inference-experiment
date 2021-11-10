@@ -6,26 +6,26 @@
 namespace types {
 
 template <typename T>
-using vector2D = std::vector<std::vector<T>>;
+using vector2d = std::vector<std::vector<T>>;
 template <typename T>
-using vector3D = std::vector<std::vector<std::vector<T>>>;
+using vector3d = std::vector<std::vector<std::vector<T>>>;
 template <typename T>
-using vector4D = std::vector<std::vector<std::vector<std::vector<T>>>>;
+using vector4d = std::vector<std::vector<std::vector<std::vector<T>>>>;
 template <typename T>
-using vector5D = std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>;
+using vector5d = std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>;
 template <typename T>
-using vector6D = std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
+using vector6d = std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
 
-using double2D = vector2D<double>;
-using double3D = vector3D<double>;
-using double4D = vector4D<double>;
-using double5D = vector5D<double>;
-using double6D = vector6D<double>;
+using double2d = vector2d<double>;
+using double3d = vector3d<double>;
+using double4d = vector4d<double>;
+using double5d = vector5d<double>;
+using double6d = vector6d<double>;
 
-using Plaintext2D = vector2D<seal::Plaintext>;
-using Plaintext3D = vector3D<seal::Plaintext>;
+using Plaintext2d = vector2d<seal::Plaintext>;
+using Plaintext3d = vector3d<seal::Plaintext>;
 
-using Ciphertext2D = vector2D<seal::Ciphertext>;
-using Ciphertext3D = vector3D<seal::Ciphertext>;
+using Ciphertext2d = vector2d<seal::Ciphertext>;
+using Ciphertext3d = vector3d<seal::Ciphertext>;
 
 } // types

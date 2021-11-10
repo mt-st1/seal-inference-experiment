@@ -9,7 +9,7 @@ public:
   Flatten();
   ~Flatten();
 
-  void forward(types::double4D& x, types::double2D& y) const override;
+  void forward(types::double4d& x, types::double2d& y) const override;
 };
 
 } // cnn
@@ -25,4 +25,4 @@ public:
   void forward(std::vector<seal::Ciphertext>& x_cts, seal::Ciphertext& y_ct) const override;
 };
 
-}
+} // cnn::encrypted
