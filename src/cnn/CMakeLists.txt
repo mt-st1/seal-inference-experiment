@@ -12,4 +12,4 @@ else()
   add_library(${module_name} STATIC ${sources})
 endif()
 
-target_link_libraries(${module_name} SEAL::seal Eigen3::Eigen)
+target_link_libraries(${module_name} SEAL::seal Eigen3::Eigen "${TORCH_LIBRARIES}")

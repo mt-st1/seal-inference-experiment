@@ -1,0 +1,7 @@
+*
+
+!/src/**
+!/include/**
+!/train_model/**
+!CMakeLists.txt
+!Dockerfile
