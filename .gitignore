@@ -19,3 +19,13 @@ build/
 bin/
 secrets/
 logs/
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Python
+__pycache__/
+.ipynb_checkpoints
+default-*.ipynb
