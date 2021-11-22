@@ -1,7 +1,7 @@
 import json
 import re
 
-from . import constants
+import constants
 
 
 def construct_structure_list(module, structure_list, module_count_map):

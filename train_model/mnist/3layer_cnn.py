@@ -1,5 +1,6 @@
 # %%
 import os
+import sys
 import time
 
 import torch
@@ -12,8 +13,9 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 from torchvision import datasets
 
-from ..utils.torch_hdf5 import save_params_as_hdf5
-from ..utils.torch_json import save_structure_as_json
+sys.path.append(os.path.abspath("../utils"))
+from torch_hdf5 import save_params_as_hdf5
+from torch_json import save_structure_as_json
 
 # %%
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,7 +27,7 @@ CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_FILE_NAME = os.path.splitext(os.path.basename(__file__))[0]
 SAVE_MODEL_DIR_NAME = "saved_models"
 MODEL_STRUCTURE_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-structure.json"
-MODEL_WEIGHTS_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-weights.h5"
+MODEL_PARAMS_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-params.h5"
 MODEL_STATE_DICT_PATH = (
     f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-state_dict.pt"
 )
@@ -244,7 +246,7 @@ print()
 # %%
 # Save model parameters as hdf5
 model = model.to('cpu')
-save_params_as_hdf5(model, MODEL_WEIGHTS_PATH)
+save_params_as_hdf5(model, MODEL_PARAMS_PATH)
 
 # %%
 # Save model

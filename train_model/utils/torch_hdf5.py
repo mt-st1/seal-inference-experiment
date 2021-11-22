@@ -1,7 +1,7 @@
 import h5py
 import torch.nn as nn
 
-from . import constants
+import constants
 
 LINEAR_LAYER_CLASSES = (nn.Conv2d, nn.Linear, nn.BatchNorm2d, nn.BatchNorm1d)
 
