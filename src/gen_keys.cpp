@@ -2,7 +2,7 @@
 #include <experimental/filesystem>
 #include <seal/seal.h>
 
-#include "../include/cmdline.h"
+#include "cmdline.h"
 #include "utils/constants.hpp"
 
 using std::ios;

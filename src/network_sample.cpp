@@ -1,6 +1,6 @@
 #include <fstream>
 
-#include "../include/cmdline.h"
+#include "cmdline.h"
 #include "utils/constants.hpp"
 #include "utils/helper.hpp"
 #include "cnn/network.hpp"
@@ -94,8 +94,12 @@ int main(int argc, char* argv[]) {
   cmdline::parser parser;
 
   parser.add<string>("prefix", 0, "Prefix of filename of keys");
+  parser.add<string>("model-structure", 0, "Path to PyTorch trained model structure (json)");
+  parser.add<string>("model-params", 0, "Path to PyTorch trained model parameters (hdf5)");
   parser.parse_check(argc, argv);
   const string fname_prefix = parser.get<string>("prefix");
+  const string model_structure_path = parser.get<string>("model-structure");
+  const string model_params_path = parser.get<string>("model-params");
 
   unique_ptr<ifstream> ifs_ptr;
   auto secrets_ifs = [&](const string& fname_suffix) -> const unique_ptr<ifstream>& {

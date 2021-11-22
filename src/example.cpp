@@ -1,6 +1,6 @@
 #include <fstream>
 
-#include "../include/cmdline.h"
+#include "cmdline.h"
 #include "utils/constants.hpp"
 #include "utils/helper.hpp"
 

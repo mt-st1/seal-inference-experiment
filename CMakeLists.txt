@@ -4,10 +4,6 @@ project(seal-experiment VERSION 1.0.0 LANGUAGES CXX)
 
 find_package(OpenMP REQUIRED)
 find_package(SEAL 3.6 REQUIRED)
-find_package(Eigen3 3.4 REQUIRED NO_MODULE)
-find_package(Torch REQUIRED)
-
-include_directories(${PROJECT_SOURCE_DIR}/src)
 
 function(setup_property TARGETS)
   message("Setup")
@@ -27,6 +23,10 @@ function(setup_property TARGETS)
         $<$<CONFIG:RelWithDebInfo>:-O3 -g3>  # -D CMAKE_BUILD_TYPE=RelWithDebInfo
     )
     target_link_options("${target}" PUBLIC -Wall)
+    target_include_directories("${target}"
+      PRIVATE ${CMAKE_SOURCE_DIR}/src
+      PRIVATE ${CMAKE_SOURCE_DIR}/include
+    )
   endforeach()
 endfunction()
 
