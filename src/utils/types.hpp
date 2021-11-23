@@ -1,20 +1,26 @@
 #pragma once
 
-#include <vector>
 #include <seal/seal.h>
+#include <vector>
 
 namespace types {
 
 template <typename T>
 using vector2d = std::vector<std::vector<T>>;
+
 template <typename T>
 using vector3d = std::vector<std::vector<std::vector<T>>>;
+
 template <typename T>
 using vector4d = std::vector<std::vector<std::vector<std::vector<T>>>>;
+
 template <typename T>
-using vector5d = std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>;
+using vector5d =
+    std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>;
+
 template <typename T>
-using vector6d = std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
+using vector6d = std::vector<
+    std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
 
 using double2d = vector2d<double>;
 using double3d = vector3d<double>;
@@ -28,4 +34,4 @@ using Plaintext3d = vector3d<seal::Plaintext>;
 using Ciphertext2d = vector2d<seal::Ciphertext>;
 using Ciphertext3d = vector3d<seal::Ciphertext>;
 
-} // types
+}  // namespace types

@@ -9,4 +9,4 @@ const std::string PUBLIC_KEY_SUFFIX = "_publicKey";
 const std::string RELIN_KEYS_SUFFIX = "_relinKeys";
 const std::string GALOIS_KEYS_SUFFIX = "_galoisKeys";
 
-} // constants::fname
+}  // namespace constants::fname

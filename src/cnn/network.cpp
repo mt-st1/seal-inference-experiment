@@ -16,7 +16,7 @@ types::double2d Network::predict(types::double4d& x_4d) {
 
   using cnn::ELayerType;
   for (auto layer_it = layers_.begin(); layer_it != layers_.end();) {
-    switch((*layer_it)->layer_type()) {
+    switch ((*layer_it)->layer_type()) {
       case CONV_2D:
       case AVG_POOL_2D:
       case ACTIVATION:
@@ -43,8 +43,7 @@ types::double2d Network::predict(types::double4d& x_4d) {
   return x_2d;
 }
 
-} // cnn
-
+}  // namespace cnn
 
 namespace cnn::encrypted {
 
@@ -62,7 +61,7 @@ seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
 
   using cnn::encrypted::ELayerType;
   for (auto layer_it = layers_.begin(); layer_it != layers_.end();) {
-    switch((*layer_it)->layer_type()) {
+    switch ((*layer_it)->layer_type()) {
       case CONV_2D:
       case AVG_POOL_2D:
       case ACTIVATION:
@@ -96,4 +95,4 @@ seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
   return x_ct;
 }
 
-} // cnn::encrypted
+}  // namespace cnn::encrypted

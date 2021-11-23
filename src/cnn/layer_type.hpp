@@ -11,8 +11,7 @@ enum ELayerType {
   FLATTEN
 };
 
-} // cnn
-
+}  // namespace cnn
 
 namespace cnn::encrypted {
 
@@ -25,4 +24,4 @@ enum ELayerType {
   FLATTEN
 };
 
-} // cnn::encrypted
+}  // namespace cnn::encrypted

@@ -11,4 +11,4 @@ extern const std::string PUBLIC_KEY_SUFFIX;
 extern const std::string RELIN_KEYS_SUFFIX;
 extern const std::string GALOIS_KEYS_SUFFIX;
 
-} // constants::fname
+}  // namespace constants::fname

@@ -5,17 +5,13 @@ namespace cnn {
 Layer::Layer(const ELayerType& layer_type) : layer_type_(layer_type) {}
 Layer::~Layer() {}
 
-} // cnn
-
+}  // namespace cnn
 
 namespace cnn::encrypted {
 
-Layer::Layer(
-  const ELayerType& layer_type,
-  const std::shared_ptr<helper::SealTool> seal_tool
-) : layer_type_(layer_type),
-    seal_tool_(seal_tool)
-  {}
+Layer::Layer(const ELayerType& layer_type,
+             const std::shared_ptr<helper::SealTool> seal_tool)
+    : layer_type_(layer_type), seal_tool_(seal_tool) {}
 Layer::~Layer() {}
 
-} // cnn::encrpted
+}  // namespace cnn::encrypted

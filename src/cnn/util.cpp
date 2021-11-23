@@ -10,11 +10,15 @@ namespace cnn::util {
  * @return eigen matrix in the form of [N*OH*OW, IC*FH*FW]
  */
 Eigen::MatrixXd im2col(types::double4d& x,
-                       const size_t& fh, const size_t& fw,
-                       const size_t& oh, const size_t& ow,
+                       const size_t& fh,
+                       const size_t& fw,
+                       const size_t& oh,
+                       const size_t& ow,
                        const std::pair<size_t, size_t>& stride) {
-  const size_t n = x.size(), ic = x.at(0).size(), ih = x.at(0).at(0).size(), iw = x.at(0).at(0).at(0).size();
-  const size_t stride_h = stride.first, stride_w = stride.second, out_hw_size = oh * ow, filter_hw_size = fh * fw;
+  const size_t n = x.size(), ic = x.at(0).size(), ih = x.at(0).at(0).size(),
+               iw = x.at(0).at(0).at(0).size();
+  const size_t stride_h = stride.first, stride_w = stride.second,
+               out_hw_size = oh * ow, filter_hw_size = fh * fw;
 
   types::double2d matrix(n * oh * ow, std::vector<double>(ic * fh * fw));
   size_t mat_col_i, mat_row_i, x_col_i, x_row_i;
@@ -45,11 +49,18 @@ Eigen::MatrixXd im2col(types::double4d& x,
  * @return padded 4d vector
  */
 types::double4d apply_zero_padding(types::double4d& x,
-                                   const std::size_t& pad_top, const std::size_t& pad_btm,
-                                   const std::size_t& pad_left, const std::size_t& pad_right) {
-  const size_t n = x.size(), ic = x.at(0).size(), ih = x.at(0).at(0).size(), iw = x.at(0).at(0).at(0).size();
-  const size_t padded_height_size = ih + pad_top + pad_btm, padded_width_size = iw + pad_left + pad_right;
-  types::double4d padded_x(n, types::double3d(ic, types::double2d(padded_height_size, std::vector<double>(padded_width_size))));
+                                   const std::size_t& pad_top,
+                                   const std::size_t& pad_btm,
+                                   const std::size_t& pad_left,
+                                   const std::size_t& pad_right) {
+  const size_t n = x.size(), ic = x.at(0).size(), ih = x.at(0).at(0).size(),
+               iw = x.at(0).at(0).at(0).size();
+  const size_t padded_height_size = ih + pad_top + pad_btm,
+               padded_width_size = iw + pad_left + pad_right;
+  types::double4d padded_x(
+      n, types::double3d(
+             ic, types::double2d(padded_height_size,
+                                 std::vector<double>(padded_width_size))));
 
   auto is_tb_pad_idx = [&](size_t h) {
     int btm_pad_idx = h - (pad_top + ih);
@@ -94,7 +105,8 @@ Eigen::MatrixXd convertToEigenMatrix(types::double2d& vec_2d) {
 
   Eigen::MatrixXd matrix(row_size, col_size);
   for (size_t i = 0; i < row_size; ++i) {
-    matrix.row(i) = Eigen::Map<Eigen::VectorXd>(vec_2d.at(i).data(), vec_2d.at(i).size());
+    matrix.row(i) =
+        Eigen::Map<Eigen::VectorXd>(vec_2d.at(i).data(), vec_2d.at(i).size());
   }
 
   return matrix;
@@ -125,4 +137,4 @@ types::double2d convertToDouble2D(Eigen::MatrixXd& matrix) {
   return vec_2d;
 }
 
-}
+}  // namespace cnn::util

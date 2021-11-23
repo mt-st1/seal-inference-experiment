@@ -19,8 +19,11 @@ int main(int argc, char* argv[]) {
   const string fname_prefix = parser.get<string>("prefix");
 
   unique_ptr<ifstream> ifs_ptr;
-  auto secrets_ifs = [&](const string& fname_suffix) -> const unique_ptr<ifstream>& {
-    ifs_ptr.reset(new ifstream(constants::fname::SECRETS_DIR + "/" + fname_prefix + fname_suffix, ios::binary));
+  auto secrets_ifs =
+      [&](const string& fname_suffix) -> const unique_ptr<ifstream>& {
+    ifs_ptr.reset(new ifstream(
+        constants::fname::SECRETS_DIR + "/" + fname_prefix + fname_suffix,
+        ios::binary));
     return ifs_ptr;
   };
 
@@ -38,7 +41,8 @@ int main(int argc, char* argv[]) {
   shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
   relin_keys->load(*context, *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
   shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
-  galois_keys->load(*context, *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  galois_keys->load(*context,
+                    *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
 
   seal::CKKSEncoder encoder(*context);
   seal::Encryptor encryptor(*context, *public_key);
