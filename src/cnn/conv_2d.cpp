@@ -55,15 +55,15 @@ void Conv2d::forward(types::double4d& x) const {
 
   auto col =
       util::im2col(padded_x, fh, fw, oh, ow, stride_);  // [N*OH*OW, IC*FH*FW]
-  types::double2d flattened_filters = util::flatten4DVectorTo2D(filters_);
+  types::double2d flattened_filters = util::flatten_4d_vector_to_2d(filters_);
   auto col_filters =
-      util::convertToEigenMatrix(flattened_filters);  // [FN, IC*FH*FW]
+      util::convert_to_eigen_matrix(flattened_filters);  // [FN, IC*FH*FW]
 
   auto wx_matrix = col * col_filters.transpose();
 
   std::vector<double> biases_copy(biases_.size());
   std::copy(biases_.begin(), biases_.end(), biases_copy.begin());
-  auto bias_vec = util::convertToEigenVector(biases_copy);
+  auto bias_vec = util::convert_to_eigen_vector(biases_copy);
 
   Eigen::MatrixXd y_matrix(wx_matrix.rows(),
                            wx_matrix.cols());  // [N*OH*OW, FN]
@@ -73,8 +73,8 @@ void Conv2d::forward(types::double4d& x) const {
 
   y_matrix.transposeInPlace();  // [FN, N*OH*OW]
 
-  types::double2d y_2d_vec = util::convertToDouble2D(y_matrix);
-  x = util::reshape2DVectorTo4D(y_2d_vec, batch_size, fn, oh, ow);
+  types::double2d y_2d_vec = util::convert_to_double_2d(y_matrix);
+  x = util::reshape_2d_vector_to_4d(y_2d_vec, batch_size, fn, oh, ow);
 }
 
 }  // namespace cnn

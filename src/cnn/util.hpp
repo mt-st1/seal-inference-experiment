@@ -19,11 +19,11 @@ types::double4d apply_zero_padding(types::double4d& x,
                                    const std::size_t& pad_left,
                                    const std::size_t& pad_right);
 
-Eigen::MatrixXd convertToEigenMatrix(types::double2d& vec_2d);
+Eigen::MatrixXd convert_to_eigen_matrix(types::double2d& vec_2d);
 
-Eigen::VectorXd convertToEigenVector(std::vector<double>& vec);
+Eigen::VectorXd convert_to_eigen_vector(std::vector<double>& vec);
 
-types::double2d convertToDouble2D(Eigen::MatrixXd& matrix);
+types::double2d convert_to_double_2d(Eigen::MatrixXd& matrix);
 
 /**
  * @brief flatten vector4d -> vector2d
@@ -31,7 +31,7 @@ types::double2d convertToDouble2D(Eigen::MatrixXd& matrix);
  * @return 2d vector in the form of [FN, IC*FH*FW]
  */
 template <typename T>
-types::vector2d<T> flatten4DVectorTo2D(const types::vector4d<T>& vec_4d) {
+types::vector2d<T> flatten_4d_vector_to_2d(const types::vector4d<T>& vec_4d) {
   const size_t row_size = vec_4d.size(), dj = vec_4d.at(0).size(),
                dk = vec_4d.at(0).at(0).size(),
                dl = vec_4d.at(0).at(0).at(0).size();
@@ -57,11 +57,11 @@ types::vector2d<T> flatten4DVectorTo2D(const types::vector4d<T>& vec_4d) {
  * @return 4d vector in the form of [N, C, H, W]
  */
 template <typename T>
-types::vector4d<T> reshape2DVectorTo4D(types::vector2d<T>& vec_2d,
-                                       const size_t n,
-                                       const size_t& c,
-                                       const size_t& h,
-                                       const size_t& w) {
+types::vector4d<T> reshape_2d_vector_to_4d(types::vector2d<T>& vec_2d,
+                                           const size_t n,
+                                           const size_t& c,
+                                           const size_t& h,
+                                           const size_t& w) {
   const size_t hw = h * w, row_size = n * h * w;
 
   types::vector4d<T> vec_4d(

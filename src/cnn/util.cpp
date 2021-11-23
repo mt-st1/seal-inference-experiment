@@ -40,7 +40,7 @@ Eigen::MatrixXd im2col(types::double4d& x,
     }
   }
 
-  return convertToEigenMatrix(matrix);
+  return convert_to_eigen_matrix(matrix);
 }
 
 /**
@@ -99,7 +99,7 @@ types::double4d apply_zero_padding(types::double4d& x,
  * @param vec_2d 2d vector (type: double)
  * @return eigen matrix (type: double)
  */
-Eigen::MatrixXd convertToEigenMatrix(types::double2d& vec_2d) {
+Eigen::MatrixXd convert_to_eigen_matrix(types::double2d& vec_2d) {
   const size_t row_size = vec_2d.size();
   const size_t col_size = vec_2d.at(0).size();
 
@@ -117,7 +117,7 @@ Eigen::MatrixXd convertToEigenMatrix(types::double2d& vec_2d) {
  * @param vec vector (type: double)
  * @return eigen vector (type: double)
  */
-Eigen::VectorXd convertToEigenVector(std::vector<double>& vec) {
+Eigen::VectorXd convert_to_eigen_vector(std::vector<double>& vec) {
   return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
 }
 
@@ -126,7 +126,7 @@ Eigen::VectorXd convertToEigenVector(std::vector<double>& vec) {
  * @param matrix eigen matrix (type: double)
  * @return 2d vector (type: double)
  */
-types::double2d convertToDouble2D(Eigen::MatrixXd& matrix) {
+types::double2d convert_to_double_2d(Eigen::MatrixXd& matrix) {
   const size_t row_size = matrix.rows(), col_size = matrix.cols();
 
   types::double2d vec_2d(row_size, std::vector<double>(col_size));
