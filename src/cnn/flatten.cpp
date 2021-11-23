@@ -29,7 +29,7 @@ void Flatten::forward(types::double4d& x, types::double2d& y) const {
 
 namespace cnn::encrypted {
 
-Flatten::Flatten(const std::shared_ptr<helper::SealTool>& seal_tool)
+Flatten::Flatten(const std::shared_ptr<helper::seal::SealTool>& seal_tool)
     : Layer(ELayerType::FLATTEN, seal_tool) {}
 Flatten::~Flatten() {}
 

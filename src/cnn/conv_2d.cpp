@@ -84,7 +84,7 @@ namespace cnn::encrypted {
 Conv2d::Conv2d(const types::Plaintext3d& filters_pts,
                const std::vector<seal::Plaintext>& biases_pts,
                const std::vector<int>& filter_rotation_map,
-               const std::shared_ptr<helper::SealTool>& seal_tool)
+               const std::shared_ptr<helper::seal::SealTool>& seal_tool)
     : Layer(ELayerType::CONV_2D, seal_tool),
       filters_pts_(filters_pts),
       biases_pts_(biases_pts),

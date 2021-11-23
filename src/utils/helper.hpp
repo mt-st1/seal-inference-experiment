@@ -2,7 +2,7 @@
 
 #include <seal/seal.h>
 
-namespace helper {
+namespace helper::seal {
 
 class SealTool {
 public:
@@ -32,4 +32,4 @@ Helper function: Prints the parameters in a SEALContext.
 */
 void print_parameters(const std::shared_ptr<seal::SEALContext>& context);
 
-}  // namespace helper
+}  // namespace helper::seal
