@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
   params.load(*secrets_ifs(constants::fname::PARAMS_SUFFIX));
 
   shared_ptr<seal::SEALContext> context(new seal::SEALContext(params));
-  helper::print_parameters(context);
+  helper::he::print_parameters(context);
   std::cout << std::endl;
 
   shared_ptr<seal::SecretKey> secret_key(new seal::SecretKey);

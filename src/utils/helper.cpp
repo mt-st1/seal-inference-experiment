@@ -1,6 +1,6 @@
 #include "helper.hpp"
 
-namespace helper::seal {
+namespace helper::he {
 
 SealTool::SealTool(seal::Evaluator& evaluator,
                    seal::RelinKeys& relin_keys,
@@ -60,4 +60,4 @@ void print_parameters(const std::shared_ptr<seal::SEALContext>& context) {
   std::cout << "\\" << std::endl;
 }
 
-}  // namespace helper::seal
+}  // namespace helper::he

@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
   params.load(*secrets_ifs(constants::fname::PARAMS_SUFFIX));
 
   shared_ptr<seal::SEALContext> context(new seal::SEALContext(params));
-  helper::print_parameters(context);
+  helper::he::print_parameters(context);
   std::cout << std::endl;
 
   // load keys
@@ -251,9 +251,9 @@ int main(int argc, char* argv[]) {
     }
 
     seal::Evaluator evaluator(*context);
-    shared_ptr<helper::seal::SealTool> seal_tool =
-        std::make_shared<helper::seal::SealTool>(
-            evaluator, *relin_keys, *galois_keys, slot_count, scale);
+    shared_ptr<helper::he::SealTool> seal_tool =
+        std::make_shared<helper::he::SealTool>(evaluator, *relin_keys,
+                                               *galois_keys, slot_count, scale);
 
     cnn::encrypted::Network enc_network;
     enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(
