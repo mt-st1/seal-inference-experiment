@@ -81,7 +81,7 @@ public:
 class Layer : public Forwardable {
 public:
   Layer(const ELayerType& layer_type,
-        const std::shared_ptr<helper::seal::SealTool> seal_tool);
+        const std::shared_ptr<helper::he::SealTool> seal_tool);
   virtual ~Layer();
 
   const ELayerType& layer_type() const { return layer_type_; };
@@ -103,7 +103,7 @@ public:
 
 protected:
   ELayerType layer_type_;
-  std::shared_ptr<helper::seal::SealTool> seal_tool_;
+  std::shared_ptr<helper::he::SealTool> seal_tool_;
 };
 
 }  // namespace cnn::encrypted

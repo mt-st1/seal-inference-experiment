@@ -40,7 +40,6 @@ Conv2d::Conv2d(
 Conv2d::~Conv2d() {}
 
 void Conv2d::forward(types::double4d& x) const {
-  vector<int> x{1, 2, 3, 4};
   const size_t batch_size = x.size(), ih = x.at(0).at(0).size(),
                iw = x.at(0).at(0).at(0).size();
   const size_t fn = filters_.size(), fh = filters_.at(0).at(0).size(),
@@ -84,7 +83,7 @@ namespace cnn::encrypted {
 Conv2d::Conv2d(const types::Plaintext3d& filters_pts,
                const std::vector<seal::Plaintext>& biases_pts,
                const std::vector<int>& filter_rotation_map,
-               const std::shared_ptr<helper::seal::SealTool>& seal_tool)
+               const std::shared_ptr<helper::he::SealTool>& seal_tool)
     : Layer(ELayerType::CONV_2D, seal_tool),
       filters_pts_(filters_pts),
       biases_pts_(biases_pts),

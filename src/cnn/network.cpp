@@ -1,5 +1,4 @@
 #include "network.hpp"
-#include "flatten.hpp"
 
 namespace cnn {
 

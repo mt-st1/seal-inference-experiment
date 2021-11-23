@@ -7,7 +7,7 @@ ENABLE_LANGUAGE(C)
 find_package(HDF5 REQUIRED)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
-file(GLOB sources *.cpp)
+file(GLOB sources *.cpp layers/*.cpp)
 
 if (BUILD_SHARED_LIBS)
   add_library(${module_name} SHARED ${sources})

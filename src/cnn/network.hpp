@@ -2,7 +2,7 @@
 
 #include <seal/seal.h>
 
-#include "layer.hpp"
+#include "layers/layer.hpp"
 
 namespace cnn {
 

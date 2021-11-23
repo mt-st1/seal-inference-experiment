@@ -1,8 +1,8 @@
 #include <fstream>
 
 #include "cmdline.h"
-#include "cnn/conv_2d.hpp"
-#include "cnn/flatten.hpp"
+#include "cnn/layers/conv_2d.hpp"
+#include "cnn/layers/flatten.hpp"
 #include "cnn/network.hpp"
 #include "utils/constants.hpp"
 #include "utils/helper.hpp"

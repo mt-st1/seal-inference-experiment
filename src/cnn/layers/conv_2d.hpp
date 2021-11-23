@@ -2,6 +2,8 @@
 
 #include "layer.hpp"
 
+const std::string CONV_2D_CLASS_NAME = "Conv2d";
+
 namespace cnn {
 
 class Conv2d : public Layer {
@@ -35,7 +37,7 @@ public:
   Conv2d(const types::Plaintext3d& filters_pts,
          const std::vector<seal::Plaintext>& biases_pts,
          const std::vector<int>& filter_rotation_map,
-         const std::shared_ptr<helper::seal::SealTool>& seal_tool);
+         const std::shared_ptr<helper::he::SealTool>& seal_tool);
   ~Conv2d();
 
   void forward(std::vector<seal::Ciphertext>& x_cts,
