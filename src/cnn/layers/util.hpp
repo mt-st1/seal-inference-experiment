@@ -6,24 +6,24 @@
 
 namespace cnn::util {
 
-Eigen::MatrixXd im2col(types::double4d& x,
+Eigen::MatrixXf im2col(types::float4d& x,
                        const std::size_t& fh,
                        const std::size_t& fw,
                        const std::size_t& oh,
                        const std::size_t& ow,
                        const std::pair<std::size_t, std::size_t>& stride);
 
-types::double4d apply_zero_padding(types::double4d& x,
-                                   const std::size_t& pad_top,
-                                   const std::size_t& pad_btm,
-                                   const std::size_t& pad_left,
-                                   const std::size_t& pad_right);
+types::float4d apply_zero_padding(types::float4d& x,
+                                  const std::size_t& pad_top,
+                                  const std::size_t& pad_btm,
+                                  const std::size_t& pad_left,
+                                  const std::size_t& pad_right);
 
-Eigen::MatrixXd convert_to_eigen_matrix(types::double2d& vec_2d);
+Eigen::MatrixXf convert_to_eigen_matrix(types::float2d& vec_2d);
 
-Eigen::VectorXd convert_to_eigen_vector(std::vector<double>& vec);
+Eigen::VectorXf convert_to_eigen_vector(std::vector<float>& vec);
 
-types::double2d convert_to_double_2d(Eigen::MatrixXd& matrix);
+types::float2d convert_to_float_2d(Eigen::MatrixXf& matrix);
 
 /**
  * @brief flatten vector4d -> vector2d

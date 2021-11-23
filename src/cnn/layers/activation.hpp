@@ -11,9 +11,9 @@ public:
   Activation();
   ~Activation();
 
-  void forward(types::double4d& x) const override;
+  void forward(types::float4d& x) const override;
 
-  void forward(types::double2d& x) const override;
+  void forward(types::float2d& x) const override;
 
 private:
 };

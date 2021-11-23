@@ -8,18 +8,18 @@ namespace cnn {
 
 class Conv2d : public Layer {
 public:
-  Conv2d(const types::double4d& filters,
-         const std::vector<double> biases,
+  Conv2d(const types::float4d& filters,
+         const std::vector<float> biases,
          const std::pair<std::size_t, std::size_t> stride = {1, 1},
          const std::pair<std::string, std::pair<std::size_t, std::size_t>>
              padding = {"", {0, 0}});
   ~Conv2d();
 
-  void forward(types::double4d& x) const override;
+  void forward(types::float4d& x) const override;
 
 private:
-  types::double4d filters_;     // form of [FN, C, FH, FW]
-  std::vector<double> biases_;  // form of [FN]
+  types::float4d filters_;     // form of [FN, C, FH, FW]
+  std::vector<float> biases_;  // form of [FN]
   std::pair<std::size_t, std::size_t> stride_;
   std::pair<std::string, std::pair<std::size_t, std::size_t>> padding_;
   std::size_t pad_top_;

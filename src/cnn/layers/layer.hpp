@@ -16,16 +16,16 @@ public:
   /**
    * @param x input in the form of [N, C, H, W]
    */
-  virtual void forward(types::double4d& x) const = 0;
+  virtual void forward(types::float4d& x) const = 0;
   /**
    * @param x input in the form of [N, C]
    */
-  virtual void forward(types::double2d& x) const = 0;
+  virtual void forward(types::float2d& x) const = 0;
   /**
    * @param x input in the form of [N, C, H, W]
    * @param[out] y flattened output in the form of [N, C]
    */
-  virtual void forward(types::double4d& x, types::double2d& y) const = 0;
+  virtual void forward(types::float4d& x, types::float2d& y) const = 0;
 };
 
 class Layer : public Forwardable {
@@ -35,15 +35,15 @@ public:
 
   const ELayerType& layer_type() const { return layer_type_; };
 
-  virtual void forward(types::double4d& x) const override {
+  virtual void forward(types::float4d& x) const override {
     std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
   }
 
-  virtual void forward(types::double2d& x) const override {
+  virtual void forward(types::float2d& x) const override {
     std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
   }
 
-  virtual void forward(types::double4d& x, types::double2d& y) const override {
+  virtual void forward(types::float4d& x, types::float2d& y) const override {
     std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
   }
 

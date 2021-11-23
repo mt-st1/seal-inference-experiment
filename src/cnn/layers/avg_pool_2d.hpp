@@ -11,7 +11,7 @@ public:
   AvgPool2d();
   ~AvgPool2d();
 
-  void forward(types::double4d& x) const override;
+  void forward(types::float4d& x) const override;
 
 private:
 };

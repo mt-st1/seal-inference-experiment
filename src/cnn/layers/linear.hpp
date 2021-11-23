@@ -11,7 +11,7 @@ public:
   Linear();
   ~Linear();
 
-  void forward(types::double2d& x) const override;
+  void forward(types::float2d& x) const override;
 
 private:
 };

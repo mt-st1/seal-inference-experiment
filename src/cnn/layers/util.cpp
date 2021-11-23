@@ -9,7 +9,7 @@ namespace cnn::util {
  * @param x input in the form of [N, IC, IH, IW]
  * @return eigen matrix in the form of [N*OH*OW, IC*FH*FW]
  */
-Eigen::MatrixXd im2col(types::double4d& x,
+Eigen::MatrixXf im2col(types::float4d& x,
                        const size_t& fh,
                        const size_t& fw,
                        const size_t& oh,
@@ -20,7 +20,7 @@ Eigen::MatrixXd im2col(types::double4d& x,
   const size_t stride_h = stride.first, stride_w = stride.second,
                out_hw_size = oh * ow, filter_hw_size = fh * fw;
 
-  types::double2d matrix(n * oh * ow, std::vector<double>(ic * fh * fw));
+  types::float2d matrix(n * oh * ow, std::vector<float>(ic * fh * fw));
   size_t mat_col_i, mat_row_i, x_col_i, x_row_i;
   for (size_t i = 0; i < n; ++i) {
     for (size_t oh_i = 0; oh_i < oh; ++oh_i) {
@@ -44,23 +44,23 @@ Eigen::MatrixXd im2col(types::double4d& x,
 }
 
 /**
- * @brief apply padding to target input 4d vector (type: double)
+ * @brief apply padding to target input 4d vector (type: float)
  * @param x input in the form of [N, IC, IH, IW]
  * @return padded 4d vector
  */
-types::double4d apply_zero_padding(types::double4d& x,
-                                   const std::size_t& pad_top,
-                                   const std::size_t& pad_btm,
-                                   const std::size_t& pad_left,
-                                   const std::size_t& pad_right) {
+types::float4d apply_zero_padding(types::float4d& x,
+                                  const std::size_t& pad_top,
+                                  const std::size_t& pad_btm,
+                                  const std::size_t& pad_left,
+                                  const std::size_t& pad_right) {
   const size_t n = x.size(), ic = x.at(0).size(), ih = x.at(0).at(0).size(),
                iw = x.at(0).at(0).at(0).size();
   const size_t padded_height_size = ih + pad_top + pad_btm,
                padded_width_size = iw + pad_left + pad_right;
-  types::double4d padded_x(
-      n, types::double3d(
-             ic, types::double2d(padded_height_size,
-                                 std::vector<double>(padded_width_size))));
+  types::float4d padded_x(
+      n, types::float3d(ic,
+                        types::float2d(padded_height_size,
+                                       std::vector<float>(padded_width_size))));
 
   auto is_tb_pad_idx = [&](size_t h) {
     int btm_pad_idx = h - (pad_top + ih);
@@ -95,43 +95,43 @@ types::double4d apply_zero_padding(types::double4d& x,
 }
 
 /**
- * @brief vector<vector<double>> -> Eigen::MatrixXd
- * @param vec_2d 2d vector (type: double)
- * @return eigen matrix (type: double)
+ * @brief vector<vector<float>> -> Eigen::MatrixXf
+ * @param vec_2d 2d vector (type: float)
+ * @return eigen matrix (type: float)
  */
-Eigen::MatrixXd convert_to_eigen_matrix(types::double2d& vec_2d) {
+Eigen::MatrixXf convert_to_eigen_matrix(types::float2d& vec_2d) {
   const size_t row_size = vec_2d.size();
   const size_t col_size = vec_2d.at(0).size();
 
-  Eigen::MatrixXd matrix(row_size, col_size);
+  Eigen::MatrixXf matrix(row_size, col_size);
   for (size_t i = 0; i < row_size; ++i) {
     matrix.row(i) =
-        Eigen::Map<Eigen::VectorXd>(vec_2d.at(i).data(), vec_2d.at(i).size());
+        Eigen::Map<Eigen::VectorXf>(vec_2d.at(i).data(), vec_2d.at(i).size());
   }
 
   return matrix;
 }
 
 /**
- * @brief vector<double> -> Eigen::VectorXd
- * @param vec vector (type: double)
- * @return eigen vector (type: double)
+ * @brief vector<float> -> Eigen::VectorXf
+ * @param vec vector (type: float)
+ * @return eigen vector (type: float)
  */
-Eigen::VectorXd convert_to_eigen_vector(std::vector<double>& vec) {
-  return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
+Eigen::VectorXf convert_to_eigen_vector(std::vector<float>& vec) {
+  return Eigen::Map<Eigen::VectorXf>(vec.data(), vec.size());
 }
 
 /**
- * @brief Eigen::MatrixXd -> vector<vector<double>>
- * @param matrix eigen matrix (type: double)
- * @return 2d vector (type: double)
+ * @brief Eigen::MatrixXf -> vector<vector<float>>
+ * @param matrix eigen matrix (type: float)
+ * @return 2d vector (type: float)
  */
-types::double2d convert_to_double_2d(Eigen::MatrixXd& matrix) {
+types::float2d convert_to_float_2d(Eigen::MatrixXf& matrix) {
   const size_t row_size = matrix.rows(), col_size = matrix.cols();
 
-  types::double2d vec_2d(row_size, std::vector<double>(col_size));
+  types::float2d vec_2d(row_size, std::vector<float>(col_size));
   for (size_t i = 0; i < row_size; ++i) {
-    Eigen::Map<Eigen::VectorXd>(vec_2d.at(i).data(), col_size) = matrix.row(i);
+    Eigen::Map<Eigen::VectorXf>(vec_2d.at(i).data(), col_size) = matrix.row(i);
   }
 
   return vec_2d;

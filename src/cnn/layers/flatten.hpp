@@ -11,7 +11,7 @@ public:
   Flatten();
   ~Flatten();
 
-  void forward(types::double4d& x, types::double2d& y) const override;
+  void forward(types::float4d& x, types::float2d& y) const override;
 };
 
 }  // namespace cnn

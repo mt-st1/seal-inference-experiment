@@ -22,6 +22,12 @@ template <typename T>
 using vector6d = std::vector<
     std::vector<std::vector<std::vector<std::vector<std::vector<T>>>>>>;
 
+using float2d = vector2d<float>;
+using float3d = vector3d<float>;
+using float4d = vector4d<float>;
+using float5d = vector5d<float>;
+using float6d = vector6d<float>;
+
 using double2d = vector2d<double>;
 using double3d = vector3d<double>;
 using double4d = vector4d<double>;

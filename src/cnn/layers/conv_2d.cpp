@@ -8,8 +8,8 @@ using std::size_t;
 namespace cnn {
 
 Conv2d::Conv2d(
-    const types::double4d& filters,
-    const std::vector<double> biases,
+    const types::float4d& filters,
+    const std::vector<float> biases,
     const std::pair<std::size_t, std::size_t> stride,
     const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding)
     : Layer(ELayerType::CONV_2D),
@@ -39,7 +39,7 @@ Conv2d::Conv2d(
 }
 Conv2d::~Conv2d() {}
 
-void Conv2d::forward(types::double4d& x) const {
+void Conv2d::forward(types::float4d& x) const {
   const size_t batch_size = x.size(), ih = x.at(0).at(0).size(),
                iw = x.at(0).at(0).at(0).size();
   const size_t fn = filters_.size(), fh = filters_.at(0).at(0).size(),
@@ -49,22 +49,22 @@ void Conv2d::forward(types::double4d& x) const {
                ow = static_cast<int>(
                    ((iw + pad_left_ + pad_right_ - fw) / stride_.second) + 1);
 
-  types::double4d padded_x =
+  types::float4d padded_x =
       util::apply_zero_padding(x, pad_top_, pad_btm_, pad_left_, pad_right_);
 
   auto col =
       util::im2col(padded_x, fh, fw, oh, ow, stride_);  // [N*OH*OW, IC*FH*FW]
-  types::double2d flattened_filters = util::flatten_4d_vector_to_2d(filters_);
+  types::float2d flattened_filters = util::flatten_4d_vector_to_2d(filters_);
   auto col_filters =
       util::convert_to_eigen_matrix(flattened_filters);  // [FN, IC*FH*FW]
 
   auto wx_matrix = col * col_filters.transpose();
 
-  std::vector<double> biases_copy(biases_.size());
+  std::vector<float> biases_copy(biases_.size());
   std::copy(biases_.begin(), biases_.end(), biases_copy.begin());
   auto bias_vec = util::convert_to_eigen_vector(biases_copy);
 
-  Eigen::MatrixXd y_matrix(wx_matrix.rows(),
+  Eigen::MatrixXf y_matrix(wx_matrix.rows(),
                            wx_matrix.cols());  // [N*OH*OW, FN]
   for (size_t i = 0; i < y_matrix.rows(); ++i) {
     y_matrix.row(i) = wx_matrix.row(i) + bias_vec.transpose();
@@ -72,7 +72,7 @@ void Conv2d::forward(types::double4d& x) const {
 
   y_matrix.transposeInPlace();  // [FN, N*OH*OW]
 
-  types::double2d y_2d_vec = util::convert_to_double_2d(y_matrix);
+  types::float2d y_2d_vec = util::convert_to_double_2d(y_matrix);
   x = util::reshape_2d_vector_to_4d(y_2d_vec, batch_size, fn, oh, ow);
 }
 
