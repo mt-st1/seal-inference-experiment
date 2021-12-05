@@ -24,6 +24,8 @@ namespace cnn::encrypted {
 
 class Activation : public Layer {
 public:
+  Activation(const std::string& activation,
+             const std::shared_ptr<helper::he::SealTool>& seal_tool);
   Activation();
   ~Activation();
 
@@ -33,6 +35,7 @@ public:
   void forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) override;
 
 private:
+  std::string activation_;
 };
 
 }  // namespace cnn::encrypted

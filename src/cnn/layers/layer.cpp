@@ -12,6 +12,7 @@ namespace cnn::encrypted {
 Layer::Layer(const ELayerType& layer_type,
              const std::shared_ptr<helper::he::SealTool> seal_tool)
     : layer_type_(layer_type), seal_tool_(seal_tool) {}
+Layer::Layer() {}
 Layer::~Layer() {}
 
 }  // namespace cnn::encrypted

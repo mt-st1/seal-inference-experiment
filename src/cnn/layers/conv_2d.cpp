@@ -9,9 +9,9 @@ namespace cnn {
 
 Conv2d::Conv2d(
     const types::float4d& filters,
-    const std::vector<float> biases,
-    const std::pair<std::size_t, std::size_t> stride,
-    const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding)
+    const std::vector<float>& biases,
+    const std::pair<std::size_t, std::size_t>& stride,
+    const std::pair<std::string, std::pair<std::size_t, std::size_t>>& padding)
     : Layer(ELayerType::CONV_2D),
       filters_(filters),
       biases_(biases),
@@ -72,7 +72,7 @@ void Conv2d::forward(types::float4d& x) const {
 
   y_matrix.transposeInPlace();  // [FN, N*OH*OW]
 
-  types::float2d y_2d_vec = util::convert_to_double_2d(y_matrix);
+  types::float2d y_2d_vec = util::convert_to_float_2d(y_matrix);
   x = util::reshape_2d_vector_to_4d(y_2d_vec, batch_size, fn, oh, ow);
 }
 
@@ -82,12 +82,13 @@ namespace cnn::encrypted {
 
 Conv2d::Conv2d(const types::Plaintext3d& filters_pts,
                const std::vector<seal::Plaintext>& biases_pts,
-               const std::vector<int>& filter_rotation_map,
+               const std::vector<int>& rotation_map,
                const std::shared_ptr<helper::he::SealTool>& seal_tool)
     : Layer(ELayerType::CONV_2D, seal_tool),
       filters_pts_(filters_pts),
       biases_pts_(biases_pts),
-      filter_rotation_map_(filter_rotation_map) {}
+      rotation_map_(rotation_map) {}
+Conv2d::Conv2d() {}
 Conv2d::~Conv2d() {}
 
 void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
@@ -102,9 +103,9 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
       for (size_t i = 0; i < filter_hw_size; ++i) {
         size_t mid_cts_idx = ci * filter_hw_size + i;
-        seal_tool_->evaluator().rotate_vector(
-            x_cts[ci], filter_rotation_map_[i], seal_tool_->galois_keys(),
-            mid_cts[mid_cts_idx]);
+        seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
+                                              seal_tool_->galois_keys(),
+                                              mid_cts[mid_cts_idx]);
         seal_tool_->evaluator().multiply_plain_inplace(mid_cts[mid_cts_idx],
                                                        filters_pts_[fi][ci][i]);
         seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[mid_cts_idx]);

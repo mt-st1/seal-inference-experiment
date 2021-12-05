@@ -1,5 +1,7 @@
 #include "helper.hpp"
 
+#include <fstream>
+
 namespace helper::he {
 
 SealTool::SealTool(seal::Evaluator& evaluator,
@@ -61,3 +63,33 @@ void print_parameters(const std::shared_ptr<seal::SEALContext>& context) {
 }
 
 }  // namespace helper::he
+
+namespace helper::json {
+
+/**
+ * @brief Get picojson object from JSON file
+ * @param file_path JSON file path
+ * @return picojson::object
+ * @throws std::runtime_error if fail to read JSON file or fail to parse
+ */
+picojson::object read_json(const std::string& file_path) {
+  std::ifstream ifs(file_path, std::ios::in);
+  if (ifs.fail()) {
+    throw std::runtime_error("Failed to read JSON file (" + file_path + ")");
+  }
+
+  std::istreambuf_iterator<char> it(ifs);
+  std::istreambuf_iterator<char> last;
+  const std::string json_str(it, last);
+  ifs.close();
+
+  picojson::value val;
+  const std::string err = picojson::parse(val, json_str);
+  if (const std::string err = picojson::parse(val, json_str); !err.empty()) {
+    throw std::runtime_error("Failed to parse JSON (" + err + ")");
+  }
+
+  return val.get<picojson::object>();
+}
+
+}  // namespace helper::json

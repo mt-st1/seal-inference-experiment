@@ -9,7 +9,7 @@ void Flatten::forward(types::float4d& x, types::float2d& y) const {
   y.reserve(x.size());
   size_t units_size =
       x.at(0).size() * x.at(0).at(0).size() * x.at(0).at(0).at(0).size();
-  std::vector<double> units;
+  std::vector<float> units;
 
   for (const auto& channels_3d : x) {
     units.reserve(units_size);
@@ -31,6 +31,7 @@ namespace cnn::encrypted {
 
 Flatten::Flatten(const std::shared_ptr<helper::he::SealTool>& seal_tool)
     : Layer(ELayerType::FLATTEN, seal_tool) {}
+Flatten::Flatten() {}
 Flatten::~Flatten() {}
 
 void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,

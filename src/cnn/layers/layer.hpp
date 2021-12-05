@@ -82,6 +82,7 @@ class Layer : public Forwardable {
 public:
   Layer(const ELayerType& layer_type,
         const std::shared_ptr<helper::he::SealTool> seal_tool);
+  Layer();
   virtual ~Layer();
 
   const ELayerType& layer_type() const { return layer_type_; };

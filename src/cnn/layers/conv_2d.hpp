@@ -9,9 +9,9 @@ namespace cnn {
 class Conv2d : public Layer {
 public:
   Conv2d(const types::float4d& filters,
-         const std::vector<float> biases,
-         const std::pair<std::size_t, std::size_t> stride = {1, 1},
-         const std::pair<std::string, std::pair<std::size_t, std::size_t>>
+         const std::vector<float>& biases,
+         const std::pair<std::size_t, std::size_t>& stride = {1, 1},
+         const std::pair<std::string, std::pair<std::size_t, std::size_t>>&
              padding = {"", {0, 0}});
   ~Conv2d();
 
@@ -36,8 +36,9 @@ class Conv2d : public Layer {
 public:
   Conv2d(const types::Plaintext3d& filters_pts,
          const std::vector<seal::Plaintext>& biases_pts,
-         const std::vector<int>& filter_rotation_map,
+         const std::vector<int>& rotation_map,
          const std::shared_ptr<helper::he::SealTool>& seal_tool);
+  Conv2d();
   ~Conv2d();
 
   void forward(std::vector<seal::Ciphertext>& x_cts,
@@ -46,7 +47,7 @@ public:
 private:
   types::Plaintext3d filters_pts_;           // form of [FN, C, FH * FW]
   std::vector<seal::Plaintext> biases_pts_;  // form of [FN]
-  std::vector<int> filter_rotation_map_;     // size: [FH * FW]
+  std::vector<int> rotation_map_;            // size: [FH * FW]
 };
 
 }  // namespace cnn::encrypted

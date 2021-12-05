@@ -30,20 +30,23 @@ function(setup_property TARGETS)
   endforeach()
 endfunction()
 
+file(GLOB common_sources src/utils/*.cpp)
+
 add_executable(gen_keys
   src/gen_keys.cpp
-  src/utils/constants.cpp
-  src/utils/helper.cpp
+  ${common_sources}
 )
 add_executable(example
   src/example.cpp
-  src/utils/constants.cpp
-  src/utils/helper.cpp
+  ${common_sources}
 )
 add_executable(network_sample
   src/network_sample.cpp
-  src/utils/constants.cpp
-  src/utils/helper.cpp
+  ${common_sources}
+)
+add_executable(main
+  src/main.cpp
+  ${common_sources}
 )
 
 target_link_libraries(gen_keys
@@ -57,6 +60,10 @@ target_link_libraries(network_sample
   SEAL::seal
   cnn
 )
+target_link_libraries(main
+  SEAL::seal
+  cnn
+)
 
 add_subdirectory(src/cnn)
 
@@ -64,6 +71,7 @@ set(TARGETS
   gen_keys
   example
   network_sample
+  main
 )
 
 setup_property("${TARGETS}")

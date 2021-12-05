@@ -2,6 +2,8 @@
 
 #include <seal/seal.h>
 
+#include "picojson.h"
+
 namespace helper::he {
 
 class SealTool {
@@ -33,3 +35,9 @@ Helper function: Prints the parameters in a SEALContext.
 void print_parameters(const std::shared_ptr<seal::SEALContext>& context);
 
 }  // namespace helper::he
+
+namespace helper::json {
+
+picojson::object read_json(const std::string& file_path);
+
+}  // namespace helper::json

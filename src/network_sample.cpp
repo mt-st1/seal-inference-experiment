@@ -87,17 +87,18 @@ types::float4d generate_filters(const size_t& fn,
 }
 
 template <typename T>
-types::vector3d<T> flatten_images_per_channel(
+types::vector3d<double> flatten_images_per_channel(
     const types::vector4d<T>& images) {
   size_t n = images.size(), c = images.at(0).size(),
          h = images.at(0).at(0).size(), w = images.at(0).at(0).at(0).size();
-  types::vector3d<T> result(n, types::vector2d(c, vector<T>(h * w)));
+  types::double3d result(n, types::double2d(c, vector<double>(h * w)));
 
   for (size_t n_i = 0; n_i < n; ++n_i) {
     for (size_t c_i = 0; c_i < c; ++c_i) {
       for (size_t h_i = 0; h_i < h; ++h_i) {
         for (size_t w_i = 0; w_i < w; ++w_i) {
-          result[n_i][c_i][h_i * h + w_i] = images[n_i][c_i][h_i][w_i];
+          result[n_i][c_i][h_i * h + w_i] =
+              static_cast<double>(images[n_i][c_i][h_i][w_i]);
         }
       }
     }
@@ -116,8 +117,6 @@ int main(int argc, char* argv[]) {
                      "Path to PyTorch trained model parameters (hdf5)");
   parser.parse_check(argc, argv);
   const string fname_prefix = parser.get<string>("prefix");
-  const string model_structure_path = parser.get<string>("model-structure");
-  const string model_params_path = parser.get<string>("model-params");
 
   unique_ptr<ifstream> ifs_ptr;
   auto secrets_ifs =
@@ -185,8 +184,7 @@ int main(int argc, char* argv[]) {
         generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
     vector<float> biases(FILTER_N, 0);
 
-    types::float3d flattened_hw_inputs =
-        flatten_images_per_channel<float>(images);
+    types::double3d flattened_hw_inputs = flatten_images_per_channel(images);
     seal::Plaintext pt;
     types::Ciphertext2d inputs_cts(INPUT_N, vector<seal::Ciphertext>(INPUT_C));
     for (size_t in; in < INPUT_N; ++in) {
@@ -197,19 +195,19 @@ int main(int argc, char* argv[]) {
     }
 
     size_t filter_hw_size = FILTER_H * FILTER_W;
-    types::float4d slot_filters_values(
-        FILTER_N,
-        types::float3d(INPUT_C, types::float2d(filter_hw_size,
-                                               vector<float>(slot_count, 0))));
+    types::double4d slot_filters_values(
+        FILTER_N, types::double3d(
+                      INPUT_C, types::double2d(filter_hw_size,
+                                               vector<double>(slot_count, 0))));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
       for (size_t ic = 0; ic < INPUT_C; ++ic) {
         for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
           for (size_t ow = 0; ow < OUTPUT_W; ++ow) {
             for (size_t fh = 0; fh < FILTER_H; ++fh) {
               for (size_t fw = 0; fw < FILTER_W; ++fw) {
-                slot_filters_values[fn][ic][fh * FILTER_H + fw]
-                                   [oh * INPUT_H + ow] =
-                                       filters[fn][ic][fh][fw];
+                slot_filters_values[fn][ic][fh * FILTER_H + fw][oh * INPUT_H +
+                                                                ow] =
+                    static_cast<double>(filters[fn][ic][fh][fw]);
               }
             }
           }
@@ -228,11 +226,12 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    types::float2d slot_biases_values(FILTER_N, vector<float>(slot_count, 0));
+    types::double2d slot_biases_values(FILTER_N, vector<double>(slot_count, 0));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
       for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
         for (size_t ow = 0; ow < OUTPUT_W; ++ow) {
-          slot_biases_values[fn][oh * INPUT_H + ow] = biases[fn];
+          slot_biases_values[fn][oh * INPUT_H + ow] =
+              static_cast<double>(biases[fn]);
         }
       }
     }
@@ -241,10 +240,10 @@ int main(int argc, char* argv[]) {
       encoder.encode(slot_biases_values[fn], scale, biases_pts[fn]);
     }
 
-    vector<int> filter_rotation_map(filter_hw_size);
+    vector<int> rotation_map(filter_hw_size);
     for (size_t i = 0; i < FILTER_H; ++i) {
       for (size_t j = 0; j < FILTER_W; ++j) {
-        filter_rotation_map[i * FILTER_H + j] = i * INPUT_H + j;
+        rotation_map[i * FILTER_H + j] = i * INPUT_H + j;
       }
     }
 
@@ -255,7 +254,7 @@ int main(int argc, char* argv[]) {
 
     cnn::encrypted::Network enc_network;
     enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(
-        filters_pts, biases_pts, filter_rotation_map, seal_tool));
+        filters_pts, biases_pts, rotation_map, seal_tool));
     enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(seal_tool));
     for (size_t i = 0; i < INPUT_N; ++i) {
       seal::Ciphertext enc_pred_result = enc_network.predict(inputs_cts[i]);

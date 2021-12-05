@@ -21,6 +21,7 @@ namespace cnn::encrypted {
 class Flatten : public Layer {
 public:
   Flatten(const std::shared_ptr<helper::he::SealTool>& seal_tool);
+  Flatten();
   ~Flatten();
 
   void forward(std::vector<seal::Ciphertext>& x_cts,
