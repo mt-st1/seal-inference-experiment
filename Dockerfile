@@ -41,7 +41,7 @@ RUN wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz \
 
 ENV PATH $PATH:/usr/local/hdf5/bin
 ENV LIBRARY_PATH $LIBRARY_PATH:/usr/local/hdf5/lib
-ENV LD_LIBRARY_PATH /usr/lib:$LD_LIBRARY_PATH:/usr/local/hdf5/lib
+ENV LD_LIBRARY_PATH /usr/lib:$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/hdf5/lib
 
 COPY . /app
 WORKDIR /app

@@ -3,5 +3,6 @@
 !/src/**
 !/include/**
 !/train_model/**
+!/datasets/**
 !CMakeLists.txt
 !Dockerfile
