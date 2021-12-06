@@ -40,3 +40,17 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class AvgPool2d : public Layer {
+public:
+  AvgPool2d();
+  ~AvgPool2d();
+
+  void forward(types::Ciphertext3d& x_ct_3d) override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

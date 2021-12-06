@@ -41,3 +41,13 @@ void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,
 }
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+Flatten::Flatten() {}
+Flatten::~Flatten() {}
+
+void Flatten::forward(types::Ciphertext3d& x_ct_3d,
+                      std::vector<seal::Ciphertext>& x_cts) const {}
+
+}  // namespace cnn::encrypted::batch

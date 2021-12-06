@@ -3,6 +3,7 @@
 
 #include "cmdline.h"
 #include "cnn/network.hpp"
+#include "cnn/network_builder.hpp"
 #include "utils/constants.hpp"
 #include "utils/helper.hpp"
 #include "utils/load_dataset.hpp"
@@ -107,6 +108,11 @@ int main(int argc, char* argv[]) {
   cout << "# of slots: " << slot_count << endl;
   cout << endl;
 
+  seal::Evaluator evaluator(*context);
+  shared_ptr<helper::he::SealTool> seal_tool =
+      std::make_shared<helper::he::SealTool>(evaluator, *relin_keys,
+                                             *galois_keys, slot_count, scale);
+
   /* Load test dataset for inference */
   cout << "Loading test images & labels..." << endl;
   types::float2d test_images = utils::load_test_images(dataset_name);
@@ -121,6 +127,20 @@ int main(int argc, char* argv[]) {
   cout << "Finish loading!" << endl;
   cout << "Number of test images: " << input_n << endl;
   cout << endl;
+
+  /* Channel-wise packed ciphertext inference */
+  if (inference_mode == constants::mode::SINGLE) {
+    /* Build network */
+    cnn::encrypted::Network network = cnn::encrypted::NetworkBuilder::build(
+        model_structure_path, model_params_path, seal_tool);
+  }
+
+  /* Fixed-pixel packed ciphertext inference */
+  if (inference_mode == constants::mode::BATCH) {
+    cnn::encrypted::batch::Network network =
+        cnn::encrypted::batch::NetworkBuilder::build(
+            model_structure_path, model_params_path, seal_tool);
+  }
 
   return 0;
 }

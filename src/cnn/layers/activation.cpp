@@ -27,3 +27,14 @@ void Activation::forward(std::vector<seal::Ciphertext>& x_cts,
 void Activation::forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) {}
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+Activation::Activation() {}
+Activation::~Activation() {}
+
+void Activation::forward(types::Ciphertext3d& x_ct_3d) {}
+
+void Activation::forward(std::vector<seal::Ciphertext>& x_cts) {}
+
+}  // namespace cnn::encrypted::batch

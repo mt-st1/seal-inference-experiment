@@ -30,3 +30,14 @@ void BatchNorm::forward(std::vector<seal::Ciphertext>& x_cts,
 void BatchNorm::forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) {}
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+BatchNorm::BatchNorm() {}
+BatchNorm::~BatchNorm() {}
+
+void BatchNorm::forward(types::Ciphertext3d& x_ct_3d) {}
+
+void BatchNorm::forward(std::vector<seal::Ciphertext>& x_cts) {}
+
+}  // namespace cnn::encrypted::batch

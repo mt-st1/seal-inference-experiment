@@ -31,3 +31,17 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Linear : public Layer {
+public:
+  Linear();
+  ~Linear();
+
+  void forward(std::vector<seal::Ciphertext>& x_cts) override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

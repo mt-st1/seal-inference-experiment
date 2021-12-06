@@ -51,3 +51,17 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Conv2d : public Layer {
+public:
+  Conv2d();
+  ~Conv2d();
+
+  void forward(types::Ciphertext3d& x_ct_3d) override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

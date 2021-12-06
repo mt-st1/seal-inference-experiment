@@ -29,3 +29,18 @@ public:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Flatten : public Layer {
+public:
+  Flatten();
+  ~Flatten();
+
+  void forward(types::Ciphertext3d& x_ct_3d,
+               std::vector<seal::Ciphertext>& x_cts) const override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

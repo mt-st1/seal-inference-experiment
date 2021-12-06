@@ -37,3 +37,20 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Network {
+public:
+  Network();
+  ~Network();
+
+  std::vector<seal::Ciphertext> predict(types::Ciphertext3d& x_ct_3d);
+
+  void add_layer(std::shared_ptr<Layer> layer) { layers_.push_back(layer); }
+
+private:
+  std::vector<std::shared_ptr<Layer>> layers_;
+};
+
+}  // namespace cnn::encrypted::batch

@@ -41,3 +41,19 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class BatchNorm : public Layer {
+public:
+  BatchNorm();
+  ~BatchNorm();
+
+  void forward(types::Ciphertext3d& x_ct_3d) override;
+
+  void forward(std::vector<seal::Ciphertext>& x_cts) override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

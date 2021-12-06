@@ -108,3 +108,57 @@ protected:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Forwardable {  // Interface
+public:
+  virtual ~Forwardable() {}
+
+  /**
+   * @param x_ct_3d input ciphertexts in the form of [C, H, W]
+   */
+  virtual void forward(types::Ciphertext3d& x_ct_3d) = 0;
+
+  /**
+   * @param x_cts input ciphertexts in the form of [UNITS]
+   */
+  virtual void forward(std::vector<seal::Ciphertext>& x_cts) = 0;
+
+  /**
+   * @param x_ct_3d input in the form of [C, H, W]
+   * @return std::vector<seal::Ciphertext>
+   *         flattened output in the form of [C * H * W]
+   */
+  virtual void forward(types::Ciphertext3d& x_ct_3d,
+                       std::vector<seal::Ciphertext>& x_cts) const = 0;
+};
+
+class Layer : public Forwardable {
+public:
+  Layer(const cnn::encrypted::ELayerType& layer_type,
+        const std::shared_ptr<helper::he::SealTool> seal_tool);
+  Layer();
+  virtual ~Layer();
+
+  const ELayerType& layer_type() const { return layer_type_; };
+
+  virtual void forward(types::Ciphertext3d& x_ct_3d) override {
+    std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
+  }
+
+  virtual void forward(std::vector<seal::Ciphertext>& x_cts) override {
+    std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
+  }
+
+  virtual void forward(types::Ciphertext3d& x_ct_3d,
+                       std::vector<seal::Ciphertext>& x_cts) const override {
+    std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
+  }
+
+protected:
+  cnn::encrypted::ELayerType layer_type_;
+  std::shared_ptr<helper::he::SealTool> seal_tool_;
+};
+
+}  // namespace cnn::encrypted::batch

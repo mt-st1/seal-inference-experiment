@@ -39,3 +39,19 @@ private:
 };
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+class Activation : public Layer {
+public:
+  Activation();
+  ~Activation();
+
+  void forward(types::Ciphertext3d& x_ct_3d) override;
+
+  void forward(std::vector<seal::Ciphertext>& x_cts) override;
+
+private:
+};
+
+}  // namespace cnn::encrypted::batch

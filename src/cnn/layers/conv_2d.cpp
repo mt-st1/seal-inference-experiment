@@ -120,3 +120,12 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
 }
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+Conv2d::Conv2d() {}
+Conv2d::~Conv2d() {}
+
+void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {}
+
+}  // namespace cnn::encrypted::batch

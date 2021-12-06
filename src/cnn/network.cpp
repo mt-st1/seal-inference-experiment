@@ -95,3 +95,48 @@ seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
 }
 
 }  // namespace cnn::encrypted
+
+namespace cnn::encrypted::batch {
+
+Network::Network() {}
+Network::~Network() {}
+
+std::vector<seal::Ciphertext> Network::predict(types::Ciphertext3d& x_ct_3d) {
+  std::vector<seal::Ciphertext> x_cts;
+  bool is_flattened = false;
+
+  using cnn::encrypted::ELayerType;
+  for (auto layer_it = layers_.begin(); layer_it != layers_.end();) {
+    switch ((*layer_it)->layer_type()) {
+      case CONV_2D:
+      case AVG_POOL_2D:
+      case ACTIVATION:
+      case BATCH_NORM:
+      case LINEAR:
+        if (!is_flattened) {
+          (*layer_it)->forward(x_ct_3d);
+        } else {
+          (*layer_it)->forward(x_cts);
+        }
+        break;
+      case FLATTEN:
+        (*layer_it)->forward(x_ct_3d, x_cts);
+        for (auto& x_ct_2d : x_ct_3d) {
+          for (auto& x_cts : x_ct_2d) {
+            for (auto& ct : x_cts) {
+              ct.release();
+            }
+          }
+        }
+        is_flattened = true;
+        break;
+      default:
+        break;
+    }
+    layer_it = layers_.erase(layer_it);
+  }
+
+  return x_cts;
+}
+
+}  // namespace cnn::encrypted::batch
