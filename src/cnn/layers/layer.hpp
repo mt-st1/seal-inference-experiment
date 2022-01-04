@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "layer_type.hpp"
+#include "utils/globals.hpp"
 #include "utils/helper.hpp"
 #include "utils/types.hpp"
 
@@ -80,12 +81,14 @@ public:
 
 class Layer : public Forwardable {
 public:
-  Layer(const ELayerType& layer_type,
+  Layer(const ELayerType layer_type,
+        const std::string layer_name,
         const std::shared_ptr<helper::he::SealTool> seal_tool);
   Layer();
   virtual ~Layer();
 
-  const ELayerType& layer_type() const { return layer_type_; };
+  const ELayerType layer_type() const { return layer_type_; };
+  const std::string layer_name() const { return layer_name_; };
 
   virtual void forward(std::vector<seal::Ciphertext>& x_cts,
                        std::vector<seal::Ciphertext>& y_cts) override {
@@ -104,6 +107,7 @@ public:
 
 protected:
   ELayerType layer_type_;
+  std::string layer_name_;
   std::shared_ptr<helper::he::SealTool> seal_tool_;
 };
 
@@ -136,12 +140,14 @@ public:
 
 class Layer : public Forwardable {
 public:
-  Layer(const cnn::encrypted::ELayerType& layer_type,
+  Layer(const cnn::encrypted::ELayerType layer_type,
+        const std::string layer_name,
         const std::shared_ptr<helper::he::SealTool> seal_tool);
   Layer();
   virtual ~Layer();
 
-  const ELayerType& layer_type() const { return layer_type_; };
+  const ELayerType layer_type() const { return layer_type_; };
+  const std::string layer_name() const { return layer_name_; };
 
   virtual void forward(types::Ciphertext3d& x_ct_3d) override {
     std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
@@ -158,6 +164,7 @@ public:
 
 protected:
   cnn::encrypted::ELayerType layer_type_;
+  std::string layer_name_;
   std::shared_ptr<helper::he::SealTool> seal_tool_;
 };
 

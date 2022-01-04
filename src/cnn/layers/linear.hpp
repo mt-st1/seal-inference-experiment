@@ -36,12 +36,17 @@ namespace cnn::encrypted::batch {
 
 class Linear : public Layer {
 public:
-  Linear();
+  Linear(const std::string layer_name,
+         types::Plaintext2d plain_weights,
+         std::vector<seal::Plaintext> plain_biases,
+         const std::shared_ptr<helper::he::SealTool> seal_tool);
   ~Linear();
 
   void forward(std::vector<seal::Ciphertext>& x_cts) override;
 
 private:
+  types::Plaintext2d plain_weights_;           // form of [OC, IC]
+  std::vector<seal::Plaintext> plain_biases_;  // form of [OC]
 };
 
 }  // namespace cnn::encrypted::batch

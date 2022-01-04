@@ -36,8 +36,10 @@ using double6d = vector6d<double>;
 
 using Plaintext2d = vector2d<seal::Plaintext>;
 using Plaintext3d = vector3d<seal::Plaintext>;
+using Plaintext4d = vector4d<seal::Plaintext>;
 
 using Ciphertext2d = vector2d<seal::Ciphertext>;
 using Ciphertext3d = vector3d<seal::Ciphertext>;
+using Ciphertext4d = vector4d<seal::Ciphertext>;
 
 }  // namespace types

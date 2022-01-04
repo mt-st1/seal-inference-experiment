@@ -20,7 +20,8 @@ namespace cnn::encrypted {
 
 class Flatten : public Layer {
 public:
-  Flatten(const std::shared_ptr<helper::he::SealTool>& seal_tool);
+  Flatten(const std::string layer_name,
+          const std::shared_ptr<helper::he::SealTool> seal_tool);
   Flatten();
   ~Flatten();
 
@@ -34,7 +35,8 @@ namespace cnn::encrypted::batch {
 
 class Flatten : public Layer {
 public:
-  Flatten();
+  Flatten(const std::string layer_name,
+          const std::shared_ptr<helper::he::SealTool> seal_tool);
   ~Flatten();
 
   void forward(types::Ciphertext3d& x_ct_3d,

@@ -5,11 +5,13 @@
 namespace helper::he {
 
 SealTool::SealTool(seal::Evaluator& evaluator,
+                   seal::CKKSEncoder& encoder,
                    seal::RelinKeys& relin_keys,
                    seal::GaloisKeys& galois_keys,
                    const std::size_t slot_count,
                    const double scale)
     : evaluator_(evaluator),
+      encoder_(encoder),
       relin_keys_(relin_keys),
       galois_keys_(galois_keys),
       slot_count_(slot_count),
@@ -61,6 +63,47 @@ void print_parameters(const std::shared_ptr<seal::SEALContext>& context) {
 
   std::cout << "\\" << std::endl;
 }
+
+void encrypt_image(const types::float2d& origin_images,
+                   std::vector<seal::Ciphertext>& target_cts,
+                   const std::size_t slot_count,
+                   seal::CKKSEncoder& encoder,
+                   seal::Encryptor& encryptor,
+                   const double scale) {}
+
+namespace batch {
+
+void encrypt_images(const types::float2d& origin_images,
+                    types::Ciphertext3d& target_ct_3d,
+                    const std::size_t slot_count,
+                    const std::size_t begin_idx,
+                    const std::size_t end_idx,
+                    seal::CKKSEncoder& encoder,
+                    seal::Encryptor& encryptor,
+                    const double scale) {
+  const size_t channel = target_ct_3d.size();
+  const size_t height = target_ct_3d.at(0).size();
+  const size_t width = target_ct_3d.at(0).at(0).size();
+  std::vector<double> pixels_in_slots(slot_count, 0);
+  seal::Plaintext plain_packed_pixels;
+
+  for (size_t c = 0; c < channel; ++c) {
+    for (size_t h = 0; h < height; ++h) {
+      for (size_t w = 0; w < width; ++w) {
+        for (size_t idx = begin_idx, counter = 0,
+                    pos = c * (height * width) + h * width + w;
+             idx < end_idx; ++idx) {
+          pixels_in_slots[counter++] = origin_images[idx][pos];
+        }
+        encoder.encode(pixels_in_slots, scale, plain_packed_pixels);
+        encryptor.encrypt(plain_packed_pixels, target_ct_3d[c][h][w]);
+        fill(pixels_in_slots.begin(), pixels_in_slots.end(), 0);
+      }
+    }
+  }
+}
+
+}  // namespace batch
 
 }  // namespace helper::he
 

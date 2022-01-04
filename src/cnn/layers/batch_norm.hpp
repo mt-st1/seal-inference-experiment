@@ -24,9 +24,10 @@ namespace cnn::encrypted {
 
 class BatchNorm : public Layer {
 public:
-  BatchNorm(const std::vector<seal::Plaintext>& weights_pts,
+  BatchNorm(const std::string layer_name,
+            const std::vector<seal::Plaintext>& weights_pts,
             const std::vector<seal::Plaintext>& biases_pts,
-            const std::shared_ptr<helper::he::SealTool>& seal_tool);
+            const std::shared_ptr<helper::he::SealTool> seal_tool);
   BatchNorm();
   ~BatchNorm();
 
@@ -46,7 +47,10 @@ namespace cnn::encrypted::batch {
 
 class BatchNorm : public Layer {
 public:
-  BatchNorm();
+  BatchNorm(const std::string layer_name,
+            const std::vector<seal::Plaintext>& plain_weights,
+            const std::vector<seal::Plaintext>& plain_biases,
+            const std::shared_ptr<helper::he::SealTool> seal_tool);
   ~BatchNorm();
 
   void forward(types::Ciphertext3d& x_ct_3d) override;
@@ -54,6 +58,8 @@ public:
   void forward(std::vector<seal::Ciphertext>& x_cts) override;
 
 private:
+  std::vector<seal::Plaintext> plain_weights_;
+  std::vector<seal::Plaintext> plain_biases_;
 };
 
 }  // namespace cnn::encrypted::batch

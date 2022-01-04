@@ -3,15 +3,16 @@ import torch.nn as nn
 
 import constants
 
-LINEAR_LAYER_CLASSES = (nn.Conv2d, nn.Linear, nn.BatchNorm2d, nn.BatchNorm1d)
+LINEAR_LAYER_CLASSES = (nn.Conv2d, nn.Linear, nn.BatchNorm2d, nn.BatchNorm1d, nn.GroupNorm)
 
 
 def serialize_linear(module, f, base_key):
     key = '/'.join([base_key, 'weight'])
     f.create_dataset(key, data=module.weight.detach())
 
-    key = '/'.join([base_key, 'bias'])
-    f.create_dataset(key, data=module.bias.detach())
+    if (module.bias is not None):
+        key = '/'.join([base_key, 'bias'])
+        f.create_dataset(key, data=module.bias.detach())
 
 
 def serialize_batch_norm(module, f, base_key):
@@ -26,6 +27,14 @@ def serialize_batch_norm(module, f, base_key):
 
     key = '/'.join([base_key, 'running_var'])
     f.create_dataset(key, data=module.running_var)
+
+
+def serialize_group_norm(module, f, base_key):
+    key = '/'.join([base_key, 'weight'])
+    f.create_dataset(key, data=module.weight.detach())
+
+    key = '/'.join([base_key, 'bias'])
+    f.create_dataset(key, data=module.bias.detach())
 
 
 def serialize(module, f, base_key, module_count_map):
@@ -45,6 +54,11 @@ def serialize(module, f, base_key, module_count_map):
             module_name = f'{class_name}_{module_count_map[class_name]}'
             serialize_batch_norm(module, f, '/'.join([base_key, module_name]))
             module_count_map[class_name] += 1
+        elif isinstance(module, nn.GroupNorm):
+            class_name = constants.GROUP_NORM_CLASS_NAME
+            module_name = f'{class_name}_{module_count_map[class_name]}'
+            serialize_group_norm(module, f, '/'.join([base_key, module_name]))
+            module_count_map[class_name] += 1
     else:
         for child in module.children():
             serialize(child, f, base_key, module_count_map)
@@ -55,6 +69,7 @@ def save_params_as_hdf5(module, filepath):
         constants.CONV_2D_CLASS_NAME: 1,
         constants.AVG_POOL_2D_CLASS_NAME: 1,
         constants.BATCH_NORM_CLASS_NAME: 1,
+        constants.GROUP_NORM_CLASS_NAME: 1,
         constants.ACTIVATION_CLASS_NAME: 1,
         constants.LINEAR_CLASS_NAME: 1,
         constants.FLATTEN_CLASS_NAME: 1

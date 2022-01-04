@@ -24,7 +24,7 @@
       "class_name": "Activation",
       "info": {
         "name": "Activation_1",
-        "function": "Square"
+        "function": "Swish"
       }
     },
     {
@@ -50,7 +50,7 @@
       "class_name": "Activation",
       "info": {
         "name": "Activation_2",
-        "function": "Square"
+        "function": "Swish"
       }
     },
     {
@@ -64,6 +64,20 @@
       "info": {
         "name": "Linear_1",
         "units": 10
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_1",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_2",
+        "eps": "1e-05"
       }
     }
   ]

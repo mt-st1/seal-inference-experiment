@@ -249,13 +249,14 @@ int main(int argc, char* argv[]) {
 
     seal::Evaluator evaluator(*context);
     shared_ptr<helper::he::SealTool> seal_tool =
-        std::make_shared<helper::he::SealTool>(evaluator, *relin_keys,
+        std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
                                                *galois_keys, slot_count, scale);
 
     cnn::encrypted::Network enc_network;
     enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(
-        filters_pts, biases_pts, rotation_map, seal_tool));
-    enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(seal_tool));
+        CONV_2D_CLASS_NAME, filters_pts, biases_pts, rotation_map, seal_tool));
+    enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(
+        FLATTEN_CLASS_NAME, seal_tool));
     for (size_t i = 0; i < INPUT_N; ++i) {
       seal::Ciphertext enc_pred_result = enc_network.predict(inputs_cts[i]);
 

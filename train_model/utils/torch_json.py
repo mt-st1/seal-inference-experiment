@@ -64,7 +64,17 @@ def construct_structure_list(module, structure_list, module_count_map):
             }
         })
         module_count_map[class_name] += 1
-    elif re.search('^ReLU.*$|^Swish.*$|^Square$', module_name):
+    elif re.search('^GroupNorm.*$', module_name):
+        class_name = constants.GROUP_NORM_CLASS_NAME
+        structure_list.append({
+            'class_name': class_name,
+            'info': {
+                'name': f'{class_name}_{module_count_map[class_name]}',
+                'eps': str(module.eps)
+            }
+        })
+        module_count_map[class_name] += 1
+    elif re.search('^ReLU.*$|^Relu.*$|^Swish.*$|^Mish.*$|^Square$|^GELU.*$', module_name):
         class_name = constants.ACTIVATION_CLASS_NAME
         structure_list.append({
             'class_name': class_name,
@@ -86,6 +96,7 @@ def save_structure_as_json(module, filepath):
         constants.CONV_2D_CLASS_NAME: 1,
         constants.AVG_POOL_2D_CLASS_NAME: 1,
         constants.BATCH_NORM_CLASS_NAME: 1,
+        constants.GROUP_NORM_CLASS_NAME: 1,
         constants.ACTIVATION_CLASS_NAME: 1,
         constants.LINEAR_CLASS_NAME: 1,
         constants.FLATTEN_CLASS_NAME: 1

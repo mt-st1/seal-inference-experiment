@@ -15,8 +15,7 @@ Conv2d::Conv2d(
     : Layer(ELayerType::CONV_2D),
       filters_(filters),
       biases_(biases),
-      stride_(stride),
-      padding_(padding) {
+      stride_(stride) {
   if (padding.first.empty()) {
     pad_top_ = padding.second.first;
     pad_btm_ = padding.second.first;
@@ -80,11 +79,12 @@ void Conv2d::forward(types::float4d& x) const {
 
 namespace cnn::encrypted {
 
-Conv2d::Conv2d(const types::Plaintext3d& filters_pts,
+Conv2d::Conv2d(const std::string layer_name,
+               const types::Plaintext3d& filters_pts,
                const std::vector<seal::Plaintext>& biases_pts,
                const std::vector<int>& rotation_map,
-               const std::shared_ptr<helper::he::SealTool>& seal_tool)
-    : Layer(ELayerType::CONV_2D, seal_tool),
+               const std::shared_ptr<helper::he::SealTool> seal_tool)
+    : Layer(ELayerType::CONV_2D, layer_name, seal_tool),
       filters_pts_(filters_pts),
       biases_pts_(biases_pts),
       rotation_map_(rotation_map) {}
@@ -123,9 +123,136 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
 
 namespace cnn::encrypted::batch {
 
-Conv2d::Conv2d() {}
+Conv2d::Conv2d(
+    const std::string layer_name,
+    const types::Plaintext4d& plain_filters,
+    const std::vector<seal::Plaintext>& plain_biases,
+    const std::shared_ptr<helper::he::SealTool> seal_tool,
+    const std::size_t stride_h,
+    const std::size_t stride_w,
+    const std::pair<std::string, std::pair<std::size_t, std::size_t>> padding)
+    : Layer(ELayerType::CONV_2D, layer_name, seal_tool),
+      plain_filters_(plain_filters),
+      plain_biases_(plain_biases),
+      stride_h_(stride_h),
+      stride_w_(stride_w) {
+  if (padding.first.empty()) {
+    pad_top_ = padding.second.first;
+    pad_btm_ = padding.second.first;
+    pad_left_ = padding.second.second;
+    pad_right_ = padding.second.second;
+  } else if (padding.first == "valid") {
+    pad_top_ = 0;
+    pad_btm_ = 0;
+    pad_left_ = 0;
+    pad_right_ = 0;
+  } else if (padding.first == "same") {
+    assert(stride_h == 1 && stride_w == 1);
+    const size_t fh = plain_filters.at(0).at(0).size(),
+                 fw = plain_filters.at(0).at(0).at(0).size();
+    pad_top_ = (fh - 1) / 2;
+    pad_btm_ = fh - pad_top_ - 1;
+    pad_left_ = (fw - 1) / 2;
+    pad_right_ = fw - pad_left_ - 1;
+  }
+  CONSUMED_LEVEL++;
+}
 Conv2d::~Conv2d() {}
 
-void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {}
+bool Conv2d::isOutOfRangeInput(const int target_x,
+                               const int target_y,
+                               const std::size_t input_w,
+                               const std::size_t input_h) {
+  return target_x < 0 || target_y < 0 || target_x >= input_w ||
+         target_y >= input_h;
+}
+
+void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {
+  const std::size_t input_c = x_ct_3d.size(), input_h = x_ct_3d.at(0).size(),
+                    input_w = x_ct_3d.at(0).at(0).size(),
+                    output_c = plain_filters_.size(),
+                    filter_h = plain_filters_.at(0).at(0).size(),
+                    filter_w = plain_filters_.at(0).at(0).at(0).size();
+  const std::size_t
+      output_h = static_cast<std::size_t>(
+          ((input_h + pad_top_ + pad_btm_ - filter_h) / stride_h_) + 1),
+      output_w = static_cast<std::size_t>(
+          ((input_w + pad_left_ + pad_right_ - filter_w) / stride_w_) + 1);
+
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+  std::cout << "\t  input shape: " << input_c << "x" << input_h << "x"
+            << input_w << std::endl;
+
+  types::Ciphertext3d output(
+      output_c,
+      types::Ciphertext2d(output_h, std::vector<seal::Ciphertext>(output_w)));
+  std::vector<std::vector<std::vector<bool>>> output_exist_map(
+      output_c, std::vector<std::vector<bool>>(
+                    output_h, std::vector<bool>(output_w, false)));
+
+  int target_top, target_left, target_x, target_y;
+  std::size_t within_range_counter;
+  seal::Ciphertext weighted_pixel;
+
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) private(                          \
+    target_top, target_left, target_x, target_y, within_range_counter, \
+    weighted_pixel)
+#endif
+  for (std::size_t oc = 0; oc < output_c; ++oc) {
+    for (std::size_t oh = 0; oh < output_h; ++oh) {
+      for (std::size_t ow = 0; ow < output_w; ++ow) {
+        target_top = oh * stride_h_ - pad_top_;
+        target_left = ow * stride_w_ - pad_left_;
+        for (std::size_t ic = 0; ic < input_c; ++ic) {
+          for (std::size_t fh = 0; fh < filter_h; ++fh) {
+            for (std::size_t fw = 0; fw < filter_w; ++fw) {
+              target_x = target_left + fw;
+              target_y = target_top + fh;
+              if (isOutOfRangeInput(target_x, target_y, input_w, input_h))
+                continue;
+              seal_tool_->evaluator().multiply_plain(
+                  x_ct_3d[ic][target_y][target_x],
+                  plain_filters_[oc][ic][fh][fw], weighted_pixel);
+              if (!output_exist_map[oc][oh][ow]) {
+                output[oc][oh][ow] = weighted_pixel;
+                output_exist_map[oc][oh][ow] = true;
+              } else {
+                seal_tool_->evaluator().add_inplace(output[oc][oh][ow],
+                                                    weighted_pixel);
+              }
+            }
+          }
+        }
+        seal_tool_->evaluator().rescale_to_next_inplace(output[oc][oh][ow]);
+        output[oc][oh][ow].scale() = seal_tool_->scale();
+        seal_tool_->evaluator().add_plain_inplace(output[oc][oh][ow],
+                                                  plain_biases_[oc]);
+      }
+    }
+  }
+
+  // x_ct_3d.resize(
+  //     output_c,
+  //     types::Ciphertext2d(output_h,
+  //     std::vector<seal::Ciphertext>(output_w)));
+  x_ct_3d.resize(output_c);
+  for (std::size_t oc = 0; oc < output_c; ++oc) {
+    x_ct_3d[oc].resize(output_h);
+    for (std::size_t oh = 0; oh < output_h; ++oh) {
+      x_ct_3d[oc][oh].resize(output_w);
+    }
+  }
+#ifdef _OPENMP
+#pragma omp parallel for collapse(3)
+#endif
+  for (std::size_t oc = 0; oc < output_c; ++oc) {
+    for (std::size_t oh = 0; oh < output_h; ++oh) {
+      for (std::size_t ow = 0; ow < output_w; ++ow) {
+        x_ct_3d[oc][oh][ow] = std::move(output[oc][oh][ow]);
+      }
+    }
+  }
+}
 
 }  // namespace cnn::encrypted::batch

@@ -1,13 +1,17 @@
+#include <chrono>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 
 #include "cmdline.h"
 #include "cnn/network.hpp"
 #include "cnn/network_builder.hpp"
 #include "utils/constants.hpp"
+#include "utils/globals.hpp"
 #include "utils/helper.hpp"
 #include "utils/load_dataset.hpp"
+#include "utils/opt_option.hpp"
 
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -16,10 +20,87 @@ using std::shared_ptr;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using std::chrono::duration;
+using std::chrono::high_resolution_clock;
 
-std::map<string, std::map<char, size_t>> CHW_MAP = {
-    {constants::dataset::MNIST, {{'C', 1}, {'H', 28}, {'W', 28}}},
-    {constants::dataset::CIFAR10, {{'C', 3}, {'H', 32}, {'W', 32}}}};
+std::unordered_map<string, std::unordered_map<char, size_t>> CHW_MAP;
+
+void initialize_map_variables() {
+  CHW_MAP[constants::dataset::MNIST] = {{'C', 1}, {'H', 28}, {'W', 28}};
+  CHW_MAP[constants::dataset::CIFAR10] = {{'C', 3}, {'H', 32}, {'W', 32}};
+  constants::activation::POLY_ACT_MAP[constants::activation::RELU_RG5_DEG2] =
+      constants::activation::RELU_RG5_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::RELU_RG7_DEG2] =
+      constants::activation::RELU_RG7_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::SWISH_RG5_DEG2] =
+      constants::activation::SWISH_RG5_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::SWISH_RG7_DEG2] =
+      constants::activation::SWISH_RG7_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::MISH_RG5_DEG2] =
+      constants::activation::MISH_RG5_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::MISH_RG7_DEG2] =
+      constants::activation::MISH_RG7_DEG2_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::RELU_RG5_DEG4] =
+      constants::activation::RELU_RG5_DEG4_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::RELU_RG7_DEG4] =
+      constants::activation::RELU_RG7_DEG4_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::SWISH_RG5_DEG4] =
+      constants::activation::SWISH_RG5_DEG4_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::SWISH_RG7_DEG4] =
+      constants::activation::SWISH_RG7_DEG4_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::MISH_RG5_DEG4] =
+      constants::activation::MISH_RG5_DEG4_COEFFS;
+  constants::activation::POLY_ACT_MAP[constants::activation::MISH_RG7_DEG4] =
+      constants::activation::MISH_RG7_DEG4_COEFFS;
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::RELU_RG5_DEG2] = {
+          constants::activation::RELU_RG5_DEG2_OPT_COEFFS,
+          constants::activation::RELU_RG5_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::RELU_RG7_DEG2] = {
+          constants::activation::RELU_RG7_DEG2_OPT_COEFFS,
+          constants::activation::RELU_RG7_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::SWISH_RG5_DEG2] = {
+          constants::activation::SWISH_RG5_DEG2_OPT_COEFFS,
+          constants::activation::SWISH_RG5_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::SWISH_RG7_DEG2] = {
+          constants::activation::SWISH_RG7_DEG2_OPT_COEFFS,
+          constants::activation::SWISH_RG7_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::MISH_RG5_DEG2] = {
+          constants::activation::MISH_RG5_DEG2_OPT_COEFFS,
+          constants::activation::MISH_RG5_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::MISH_RG7_DEG2] = {
+          constants::activation::MISH_RG7_DEG2_OPT_COEFFS,
+          constants::activation::MISH_RG7_DEG2_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::RELU_RG5_DEG4] = {
+          constants::activation::RELU_RG5_DEG4_OPT_COEFFS,
+          constants::activation::RELU_RG5_DEG4_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::RELU_RG7_DEG4] = {
+          constants::activation::RELU_RG7_DEG4_OPT_COEFFS,
+          constants::activation::RELU_RG7_DEG4_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::SWISH_RG5_DEG4] = {
+          constants::activation::SWISH_RG5_DEG4_OPT_COEFFS,
+          constants::activation::SWISH_RG5_DEG4_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::SWISH_RG7_DEG4] = {
+          constants::activation::SWISH_RG7_DEG4_OPT_COEFFS,
+          constants::activation::SWISH_RG7_DEG4_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::MISH_RG5_DEG4] = {
+          constants::activation::MISH_RG5_DEG4_OPT_COEFFS,
+          constants::activation::MISH_RG5_DEG4_COEFFS.front()};
+  constants::activation::OPT_POLY_ACT_MAP
+      [constants::activation::MISH_RG7_DEG4] = {
+          constants::activation::MISH_RG7_DEG4_OPT_COEFFS,
+          constants::activation::MISH_RG7_DEG4_COEFFS.front()};
+}
 
 template <typename T>
 types::vector3d<double> flatten_images_per_channel(
@@ -42,32 +123,57 @@ types::vector3d<double> flatten_images_per_channel(
 }
 
 int main(int argc, char* argv[]) {
-  cmdline::parser parser;
+  /* Initialize map */
+  initialize_map_variables();
 
+  /* Parse command line args */
+  cmdline::parser parser;
   parser.add<string>("secret-prefix", 'P', "Prefix of filename of keys");
   parser.add<string>("dataset", 'D', "Dataset name", false,
                      constants::dataset::MNIST,
                      cmdline::oneof<string>(constants::dataset::MNIST,
                                             constants::dataset::CIFAR10));
   parser.add<string>("model", 'M', "Model name trained with PyTorch");
-  parser.add("optimize", 0, "Whether to apply level reduction optimizations");
+  parser.add<string>("model-params", 0, "Model params file name (h5)");
+  parser.add<string>("activation", 'A', "Activation function name");
+  parser.add("fuse-layer", 0,
+             "Whether to apply optimization which fuse linear layers (e.g. "
+             "Conv2d + BatchNormalization)");
+  parser.add("opt-act", 0,
+             "Whether to apply optimization which fold coefficient of "
+             "polynomial approx. activation function");
+  parser.add("opt-pool", 0,
+             "Whether to apply optimization which fold coefficient of average "
+             "pooling");
   parser.add<string>(
       "mode", 0,
       "Inference mode "
-      "(single: channel-wise packing, batch: fixed-pixel packing)",
+      "(single: channel-wise packing, batch: batch-axis packing)",
       false, constants::mode::SINGLE,
       cmdline::oneof<string>(constants::mode::SINGLE, constants::mode::BATCH));
+  parser.add<size_t>("trials", 'N',
+                     "Number of trials to evaluate inference on test dataset",
+                     false, 1);
+
   parser.parse_check(argc, argv);
   const string secret_fname_prefix = parser.get<string>("secret-prefix");
   const string dataset_name = parser.get<string>("dataset");
   const string model_name = parser.get<string>("model");
-  const bool apply_opt = parser.exist("optimize");
+  const string model_params_fname = parser.get<string>("model-params");
+  const string activation_str = parser.get<string>("activation");
+  const bool enable_fuse_linear_layer = parser.exist("fuse-layer");
+  const bool enable_fold_act_coeff = parser.exist("opt-act");
+  const bool enable_fold_pool_coeff = parser.exist("opt-pool");
+  OPT_OPTION = OptOption(enable_fuse_linear_layer, enable_fold_act_coeff,
+                         enable_fold_pool_coeff);
   const string inference_mode = parser.get<string>("mode");
+  const size_t inference_trial_count = parser.get<size_t>("trials");
 
-  const string base_model_path = constants::fname::TRAIN_MODEL_DIR + "/" +
-                                 dataset_name + "/saved_models/" + model_name;
-  const string model_structure_path = base_model_path + "-structure.json";
-  const string model_params_path = base_model_path + "-params.h5";
+  const string saved_models_path =
+      constants::fname::TRAIN_MODEL_DIR + "/" + dataset_name + "/saved_models/";
+  const string model_structure_path =
+      saved_models_path + model_name + "-structure.json";
+  const string model_params_path = saved_models_path + model_params_fname;
 
   unique_ptr<ifstream> ifs_ptr;
   auto secrets_ifs =
@@ -77,6 +183,44 @@ int main(int argc, char* argv[]) {
                                ios::binary));
     return ifs_ptr;
   };
+
+  /* Initialize global variables */
+  CONSUMED_LEVEL = 0;
+  SHOULD_MUL_ACT_COEFF = false;
+  SHOULD_MUL_POOL_COEFF = false;
+  if (activation_str.compare(constants::activation::SQUARE) == 0) {
+    ACTIVATION_TYPE = EActivationType::SQUARE;
+  } else if (activation_str.find("deg2") != string::npos) {
+    ACTIVATION_TYPE = EActivationType::DEG2_POLY_APPROX;
+  } else if (activation_str.find("deg4") != string::npos) {
+    ACTIVATION_TYPE = EActivationType::DEG4_POLY_APPROX;
+  } else {
+    throw std::logic_error("Unsupported activation function: " +
+                           activation_str);
+  }
+  if (ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX ||
+      ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) {
+    if (OPT_OPTION.enable_fold_act_coeff) {
+      if (auto map_iter =
+              constants::activation::OPT_POLY_ACT_MAP.find(activation_str);
+          map_iter != constants::activation::OPT_POLY_ACT_MAP.end()) {
+        POLY_ACT_COEFFS = map_iter->second.first;
+        POLY_ACT_HIGHEST_DEG_COEFF = map_iter->second.second;
+      } else {
+        throw std::logic_error("Unsupported activation function: " +
+                               activation_str);
+      }
+    } else {
+      if (auto map_iter =
+              constants::activation::POLY_ACT_MAP.find(activation_str);
+          map_iter != constants::activation::POLY_ACT_MAP.end()) {
+        POLY_ACT_COEFFS = map_iter->second;
+      } else {
+        throw std::logic_error("Unsupported activation function: " +
+                               activation_str);
+      }
+    }
+  }
 
   /* Load seal params */
   seal::EncryptionParameters params;
@@ -110,7 +254,7 @@ int main(int argc, char* argv[]) {
 
   seal::Evaluator evaluator(*context);
   shared_ptr<helper::he::SealTool> seal_tool =
-      std::make_shared<helper::he::SealTool>(evaluator, *relin_keys,
+      std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
                                              *galois_keys, slot_count, scale);
 
   /* Load test dataset for inference */
@@ -121,25 +265,190 @@ int main(int argc, char* argv[]) {
   const size_t input_n = test_images.size(),
                input_c = CHW_MAP[dataset_name]['C'],
                input_h = CHW_MAP[dataset_name]['H'],
-               input_w = CHW_MAP[dataset_name]['W'],
-               label_size = test_labels.size();
+               input_w = CHW_MAP[dataset_name]['W'], label_size = 10;
 
   cout << "Finish loading!" << endl;
-  cout << "Number of test images: " << input_n << endl;
+  cout << "Shape of test images: [" << input_n << ", " << input_c << ", "
+       << input_h << ", " << input_w << "]" << endl;
   cout << endl;
 
   /* Channel-wise packed ciphertext inference */
   if (inference_mode == constants::mode::SINGLE) {
+    using namespace cnn::encrypted;
     /* Build network */
-    cnn::encrypted::Network network = cnn::encrypted::NetworkBuilder::build(
-        model_structure_path, model_params_path, seal_tool);
+    cout << "Building network from trained model..." << endl;
+    Network network;
+    auto build_network_begin_time = high_resolution_clock::now();
+    try {
+      network = NetworkBuilder::build(model_structure_path, model_params_path,
+                                      seal_tool);
+    } catch (const std::runtime_error& re) {
+      cerr << "Error has occurred in building network." << endl;
+      cerr << "RuntimeError: " << re.what() << endl;
+      return 1;
+    } catch (const std::exception& e) {
+      cerr << "Error has occurred in building network." << endl;
+      cerr << "Exception: " << e.what() << endl;
+      return 1;
+    }
+    auto build_network_end_time = high_resolution_clock::now();
+    duration<double> build_network_sec =
+        build_network_end_time - build_network_begin_time;
+    cout << "Finish building! (" << build_network_sec.count() << " sec)\n"
+         << endl;
   }
 
   /* Fixed-pixel packed ciphertext inference */
   if (inference_mode == constants::mode::BATCH) {
-    cnn::encrypted::batch::Network network =
-        cnn::encrypted::batch::NetworkBuilder::build(
-            model_structure_path, model_params_path, seal_tool);
+    using namespace cnn::encrypted::batch;
+    /* Build network */
+    cout << "Building network from trained model..." << endl;
+    Network network;
+    auto build_network_begin_time = high_resolution_clock::now();
+    try {
+      network = NetworkBuilder::build(model_structure_path, model_params_path,
+                                      seal_tool);
+    } catch (const std::runtime_error& re) {
+      cerr << "Error has occurred in building network." << endl;
+      cerr << "RuntimeError: " << re.what() << endl;
+      return 1;
+    } catch (const std::exception& e) {
+      cerr << "Error has occurred in building network." << endl;
+      cerr << "Exception: " << e.what() << endl;
+      return 1;
+    }
+    auto build_network_end_time = high_resolution_clock::now();
+    duration<double> build_network_sec =
+        build_network_end_time - build_network_begin_time;
+    cout << "Finish building! (" << build_network_sec.count() << " sec)" << endl
+         << endl;
+
+    /* Execute inference on test data */
+    size_t remain_image_count = input_n;
+    vector<seal::Ciphertext> enc_results(label_size);
+    vector<seal::Plaintext> plain_results(label_size);
+    vector<vector<double>> results(input_n, vector<double>(label_size));
+    vector<double> tmp_results(slot_count);
+    duration<double> sum_encryption_trials_sec, sum_inference_trials_sec,
+        sum_decryption_trials_sec;
+
+    const size_t step_count =
+        std::ceil(static_cast<double>(input_n) / slot_count);
+    cout << "# of inference trials: " << inference_trial_count << endl;
+    cout << "# of steps: " << step_count << endl << endl;
+    for (size_t step = 0, image_count_in_step; step < step_count; ++step) {
+      cout << "Step " << step + 1 << ":\n"
+           << "\t--------------------------------------------------" << endl;
+
+      sum_encryption_trials_sec = duration<double>::zero();
+      sum_inference_trials_sec = duration<double>::zero();
+      sum_decryption_trials_sec = duration<double>::zero();
+      image_count_in_step =
+          (slot_count < remain_image_count) ? slot_count : remain_image_count;
+      const size_t begin_idx = step * slot_count;
+      const size_t end_idx = begin_idx + image_count_in_step;
+
+      for (size_t n = 0; n < inference_trial_count; ++n) {
+        cout << "\t<Trial " << n + 1 << ">\n"
+             << "\tEncrypting " << image_count_in_step << " images..." << endl;
+
+        /* Encrypt images in step */
+        types::Ciphertext3d enc_packed_images(
+            input_c,
+            types::Ciphertext2d(input_h, vector<seal::Ciphertext>(input_w)));
+        auto step_encrypt_images_begin_time = high_resolution_clock::now();
+        helper::he::batch::encrypt_images(test_images, enc_packed_images,
+                                          slot_count, begin_idx, end_idx,
+                                          encoder, encryptor, scale);
+        auto step_encrypt_images_end_time = high_resolution_clock::now();
+        duration<double> step_encrypt_images_sec =
+            step_encrypt_images_end_time - step_encrypt_images_begin_time;
+        sum_encryption_trials_sec += step_encrypt_images_sec;
+        cout << "\tFinish encrypting! (" << step_encrypt_images_sec.count()
+             << " sec)\n"
+             << "\t  encrypted packed images shape: "
+             << enc_packed_images.size() << "x"
+             << enc_packed_images.at(0).size() << "x"
+             << enc_packed_images.at(0).at(0).size() << "\n"
+             << endl;
+
+        /* Execute inference */
+        cout << "\tExecuting inference..." << endl;
+        auto step_inference_begin_time = high_resolution_clock::now();
+        vector<seal::Ciphertext> enc_results =
+            network.predict(enc_packed_images);
+        auto step_inference_end_time = high_resolution_clock::now();
+
+        duration<double> step_inference_sec =
+            step_inference_end_time - step_inference_begin_time;
+        sum_inference_trials_sec += step_inference_sec;
+        cout << "\tFinish executing inference! (" << step_inference_sec.count()
+             << " sec)\n"
+             << "\t  encrypted results size: " << enc_results.size() << "\n"
+             << endl;
+
+        /* Decrypt inference results */
+        cout << "\tDecrypting inference results..." << endl;
+        auto step_decrypt_results_begin_time = high_resolution_clock::now();
+        for (size_t label = 0; label < label_size; ++label) {
+          decryptor.decrypt(enc_results[label], plain_results[label]);
+          encoder.decode(plain_results[label], tmp_results);
+
+          for (size_t image_idx = begin_idx, counter = 0; image_idx < end_idx;
+               ++image_idx) {
+            results[image_idx][label] = tmp_results[counter++];
+          }
+        }
+        auto step_decrypt_results_end_time = high_resolution_clock::now();
+
+        duration<double> step_decrypt_results_sec =
+            step_decrypt_results_end_time - step_decrypt_results_begin_time;
+        sum_decryption_trials_sec += step_decrypt_results_sec;
+        cout << "\tFinish decrypting! (" << step_decrypt_results_sec.count()
+             << " sec)\n"
+             << "\t--------------------------------------------------" << endl;
+      }
+      duration<double> average_encryption_trials_sec =
+          sum_encryption_trials_sec / inference_trial_count;
+      duration<double> average_prediction_trials_sec =
+          sum_inference_trials_sec / inference_trial_count;
+      duration<double> average_decryption_trials_sec =
+          sum_decryption_trials_sec / inference_trial_count;
+      cout << "\n\t~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+           << "\tAverage of " << inference_trial_count
+           << " encryption trials: " << average_encryption_trials_sec.count()
+           << " sec\n"
+           << "\tAverage of " << inference_trial_count
+           << " prediction trials: " << average_prediction_trials_sec.count()
+           << " sec\n"
+           << "\tAverage of " << inference_trial_count
+           << " decryption trials: " << average_decryption_trials_sec.count()
+           << " sec\n"
+           << "\t~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+           << endl;
+      remain_image_count -= image_count_in_step;
+    }
+
+    /* Calculate accuracy */
+    vector<double>::iterator begin_iter, max_iter;
+    size_t predicted_label, correct_prediction_count = 0;
+
+    cout << "Calculating accuracy..." << endl;
+    for (size_t image_idx = 0; image_idx < input_n; ++image_idx) {
+      vector<double> predict_outputs = results[image_idx];
+      begin_iter = predict_outputs.begin();
+      max_iter = std::max_element(begin_iter, predict_outputs.end());
+      predicted_label = distance(begin_iter, max_iter);
+
+      if (predicted_label == static_cast<size_t>(test_labels[image_idx])) {
+        correct_prediction_count++;
+      }
+    }
+
+    const double accuracy =
+        static_cast<double>(correct_prediction_count) / input_n;
+    cout << "Finish calculating!\n" << endl;
+    cout << "Accuracy: " << accuracy << "\n" << endl;
   }
 
   return 0;

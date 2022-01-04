@@ -19,6 +19,7 @@ build/
 bin/
 secrets/
 logs/
+histories/
 
 # Compiled Dynamic libraries
 *.so
@@ -29,3 +30,8 @@ logs/
 __pycache__/
 .ipynb_checkpoints
 default-*.ipynb
+
+saved_models/
+graphs/
+train_model/mnist/data/
+train_model/cifar-10/data/

@@ -29,8 +29,9 @@ void Flatten::forward(types::float4d& x, types::float2d& y) const {
 
 namespace cnn::encrypted {
 
-Flatten::Flatten(const std::shared_ptr<helper::he::SealTool>& seal_tool)
-    : Layer(ELayerType::FLATTEN, seal_tool) {}
+Flatten::Flatten(const std::string layer_name,
+                 const std::shared_ptr<helper::he::SealTool> seal_tool)
+    : Layer(ELayerType::FLATTEN, layer_name, seal_tool) {}
 Flatten::Flatten() {}
 Flatten::~Flatten() {}
 
@@ -44,10 +45,34 @@ void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,
 
 namespace cnn::encrypted::batch {
 
-Flatten::Flatten() {}
+Flatten::Flatten(const std::string layer_name,
+                 const std::shared_ptr<helper::he::SealTool> seal_tool)
+    : Layer(ELayerType::FLATTEN, layer_name, seal_tool) {}
 Flatten::~Flatten() {}
 
 void Flatten::forward(types::Ciphertext3d& x_ct_3d,
-                      std::vector<seal::Ciphertext>& x_cts) const {}
+                      std::vector<seal::Ciphertext>& x_cts) const {
+  const std::size_t input_c = x_ct_3d.size(), input_h = x_ct_3d.at(0).size(),
+                    input_w = x_ct_3d.at(0).at(0).size(),
+                    output_c = input_c * input_h * input_w;
+
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+  std::cout << "\t  input shape: " << input_c << "x" << input_h << "x"
+            << input_w << std::endl;
+
+  x_cts.resize(output_c);
+
+#ifdef _OPENMP
+#pragma omp parallel for collapse(3)
+#endif
+  for (std::size_t ic = 0; ic < input_c; ++ic) {
+    for (std::size_t ih = 0; ih < input_h; ++ih) {
+      for (std::size_t iw = 0; iw < input_w; ++iw) {
+        x_cts[ic * (input_h * input_w) + ih * input_w + iw] =
+            std::move(x_ct_3d[ic][ih][iw]);
+      }
+    }
+  }
+}
 
 }  // namespace cnn::encrypted::batch

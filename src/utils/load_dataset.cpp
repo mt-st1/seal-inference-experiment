@@ -4,6 +4,8 @@
 #include "mnist/mnist_reader.hpp"
 
 constexpr size_t NORMALIZE_DENOM = 255;
+constexpr double NORMALIZE_MEAN = 0.5;
+constexpr double NORMALIZE_STD = 0.5;
 const std::string MNIST_DATASET_PATH =
     constants::fname::DATASETS_DIR + "/" + constants::dataset::MNIST;
 const std::string CIFAR10_DATASET_PATH =
@@ -17,7 +19,9 @@ void normalize(Container<Image>& images) {
   size_t pixel_count_per_image = images[0].size();
   for (size_t i = 0; i < image_count; ++i) {
     for (size_t j = 0; j < pixel_count_per_image; ++j) {
-      images[i][j] /= NORMALIZE_DENOM;
+      images[i][j] /= NORMALIZE_DENOM;  // [0, 1]
+      images[i][j] =
+          (images[i][j] - NORMALIZE_MEAN) / NORMALIZE_STD;  // [-1, 1]
     }
   }
 }

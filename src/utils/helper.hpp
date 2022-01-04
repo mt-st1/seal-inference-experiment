@@ -3,26 +3,30 @@
 #include <seal/seal.h>
 
 #include "picojson.h"
+#include "types.hpp"
 
 namespace helper::he {
 
 class SealTool {
 public:
   SealTool(seal::Evaluator& evaluator,
+           seal::CKKSEncoder& encoder,
            seal::RelinKeys& relin_keys,
            seal::GaloisKeys& galois_keys,
            const std::size_t slot_count,
            const double scale);
   ~SealTool() = default;
 
-  const seal::Evaluator& evaluator() const { return evaluator_; };
-  const seal::RelinKeys& relin_keys() const { return relin_keys_; };
-  const seal::GaloisKeys& galois_keys() const { return galois_keys_; };
-  size_t slot_count() const { return slot_count_; };
-  size_t scale() const { return scale_; };
+  seal::Evaluator& evaluator() const { return evaluator_; };
+  seal::CKKSEncoder& encoder() const { return encoder_; };
+  seal::RelinKeys& relin_keys() const { return relin_keys_; };
+  seal::GaloisKeys& galois_keys() const { return galois_keys_; };
+  const size_t slot_count() const { return slot_count_; };
+  const double scale() const { return scale_; };
 
 private:
   seal::Evaluator& evaluator_;
+  seal::CKKSEncoder& encoder_;
   seal::RelinKeys& relin_keys_;
   seal::GaloisKeys& galois_keys_;
   std::size_t slot_count_;
@@ -33,6 +37,24 @@ private:
 Helper function: Prints the parameters in a SEALContext.
 */
 void print_parameters(const std::shared_ptr<seal::SEALContext>& context);
+
+void encrypt_image(const types::float2d& origin_images,
+                   std::vector<seal::Ciphertext>& target_cts,
+                   const std::size_t slot_count,
+                   seal::CKKSEncoder& encoder,
+                   seal::Encryptor& encryptor,
+                   const double scale);
+
+namespace batch {
+void encrypt_images(const types::float2d& origin_images,
+                    types::Ciphertext3d& target_ct_3d,
+                    const std::size_t slot_count,
+                    const std::size_t begin_idx,
+                    const std::size_t end_idx,
+                    seal::CKKSEncoder& encoder,
+                    seal::Encryptor& encryptor,
+                    const double scale);
+}  // namespace batch
 
 }  // namespace helper::he
 
