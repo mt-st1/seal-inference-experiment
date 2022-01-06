@@ -183,12 +183,13 @@ class CifarCNN(nn.Module):
             self.dropout3 = nn.Dropout2d(0.25)
         if gap_enabled:
             self.gap = nn.AvgPool2d(kernel_size=4)
-            self.fc1 = nn.Linear(128, 256)
+            # self.fc1 = nn.Linear(128, 256)
+            self.fc2 = nn.Linear(128, 10)
         else:
             self.fc1 = nn.Linear(128 * 4 * 4, 256)
+            self.fc2 = nn.Linear(256, 10)
         if do_enabled:
             self.dropout_fc1 = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(256, 10)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -206,8 +207,10 @@ class CifarCNN(nn.Module):
 
         if gap_enabled:
             x = self.gap(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+            x = x.view(x.size(0), -1)
+        else:
+            x = x.view(x.size(0), -1)
+            x = self.fc1(x)
         if do_enabled:
             x = self.dropout_fc1(x)
         x = self.fc2(x)
