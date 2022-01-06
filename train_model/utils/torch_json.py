@@ -38,13 +38,14 @@ def construct_structure_list(module, structure_list, module_count_map):
         module_count_map[class_name] += 1
     elif re.search('^Linear$', module_name):
         class_name = constants.FLATTEN_CLASS_NAME
-        structure_list.append({
-            'class_name': class_name,
-            'info': {
-                'name': f'{class_name}_{module_count_map[class_name]}',
-            }
-        })
-        module_count_map[class_name] += 1
+        if module_count_map[class_name] == 1:
+            structure_list.append({
+                'class_name': class_name,
+                'info': {
+                    'name': f'{class_name}_{module_count_map[class_name]}',
+                }
+            })
+            module_count_map[class_name] += 1
         class_name = constants.LINEAR_CLASS_NAME
         structure_list.append({
             'class_name': class_name,
