@@ -2,6 +2,7 @@
 
 !/src/**
 !/include/**
+!/secrets/**
 !/train_model/**
 !/datasets/**
 !CMakeLists.txt
