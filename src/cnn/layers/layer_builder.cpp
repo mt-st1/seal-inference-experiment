@@ -386,9 +386,9 @@ std::shared_ptr<Layer> build_conv_2d(
               flattened_filters[fn * (in_channel * filter_height * filter_w) +
                                 ic * (filter_height * filter_w) +
                                 fh * filter_w + fw];
-          // if (fabs(weight) < ROUND_THRESHOLD) {
-          //   round_value(weight);
-          // }
+          if (fabs(weight) < ROUND_THRESHOLD) {
+            round_value(weight);
+          }
           seal_tool->encoder().encode(weight, seal_tool->scale(),
                                       plain_filters[fn][ic][fh][fw]);
           for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
@@ -589,9 +589,9 @@ std::shared_ptr<Layer> build_linear(
   for (std::size_t oc = 0; oc < out_channel; ++oc) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
       weight = folding_value * flattened_weights[oc * in_channel + ic];
-      // if (fabs(weight) < ROUND_THRESHOLD) {
-      //   round_value(weight);
-      // }
+      if (fabs(weight) < ROUND_THRESHOLD) {
+        round_value(weight);
+      }
       seal_tool->encoder().encode(weight, seal_tool->scale(),
                                   plain_weights[oc][ic]);
       for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
@@ -765,10 +765,10 @@ std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
                                      ic * (filter_height * filter_w) +
                                      fh * filter_w + fw] *
               bn_weights[fn];
-          // if (fabs(fused_weight) < ROUND_THRESHOLD) {
-          //   std::cout << "fused_weight: " << fused_weight << std::endl;
-          //   round_value(fused_weight);
-          // }
+          if (fabs(fused_weight) < ROUND_THRESHOLD) {
+            // std::cout << "fused_weight: " << fused_weight << std::endl;
+            round_value(fused_weight);
+          }
           seal_tool->encoder().encode(fused_weight, seal_tool->scale(),
                                       plain_filters[fn][ic][fh][fw]);
           for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
@@ -891,10 +891,10 @@ std::shared_ptr<Layer> build_linear_fused_batch_norm(
       fused_weight = folding_value *
                      linear_flattened_weights[oc * in_channel + ic] *
                      bn_weights[oc];
-      // if (fabs(fused_weight) < ROUND_THRESHOLD) {
-      //   std::cout << "fused_weight: " << fused_weight << std::endl;
-      //   round_value(fused_weight);
-      // }
+      if (fabs(fused_weight) < ROUND_THRESHOLD) {
+        // std::cout << "fused_weight: " << fused_weight << std::endl;
+        round_value(fused_weight);
+      }
       seal_tool->encoder().encode(fused_weight, seal_tool->scale(),
                                   plain_weights[oc][ic]);
       for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
