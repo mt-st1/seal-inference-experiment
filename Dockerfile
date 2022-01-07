@@ -7,7 +7,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         unzip \
         vim \
         git \
-        libssl-dev
+        libssl-dev \
+        time \
+        numactl
 
 WORKDIR /tmp
 # Install CMake
