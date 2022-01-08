@@ -64,12 +64,31 @@ void print_parameters(const std::shared_ptr<seal::SEALContext>& context) {
   std::cout << "\\" << std::endl;
 }
 
-void encrypt_image(const types::float2d& origin_images,
+void encrypt_image(const std::vector<float>& origin_image,
                    std::vector<seal::Ciphertext>& target_cts,
+                   const std::size_t image_c,
+                   const std::size_t image_h,
+                   const std::size_t image_w,
                    const std::size_t slot_count,
                    seal::CKKSEncoder& encoder,
                    seal::Encryptor& encryptor,
-                   const double scale) {}
+                   const double scale) {
+  std::vector<double> channel_slots(slot_count, 0);
+  seal::Plaintext plain_packed_channel;
+
+  for (size_t c = 0; c < image_c; ++c) {
+    size_t counter = 0;
+    for (size_t h = 0; h < image_h; ++h) {
+      for (size_t w = 0; w < image_w; ++w) {
+        size_t pos = c * (image_h * image_w) + h * image_w + w;
+        channel_slots[counter++] = origin_image[pos];
+      }
+    }
+    encoder.encode(channel_slots, scale, plain_packed_channel);
+    encryptor.encrypt(plain_packed_channel, target_cts[c]);
+    fill(channel_slots.begin(), channel_slots.end(), 0);
+  }
+}
 
 namespace batch {
 

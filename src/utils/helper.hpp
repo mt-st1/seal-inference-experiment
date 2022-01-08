@@ -38,8 +38,11 @@ Helper function: Prints the parameters in a SEALContext.
 */
 void print_parameters(const std::shared_ptr<seal::SEALContext>& context);
 
-void encrypt_image(const types::float2d& origin_images,
+void encrypt_image(const std::vector<float>& origin_image,
                    std::vector<seal::Ciphertext>& target_cts,
+                   const std::size_t image_c,
+                   const std::size_t image_h,
+                   const std::size_t image_w,
                    const std::size_t slot_count,
                    seal::CKKSEncoder& encoder,
                    seal::Encryptor& encryptor,

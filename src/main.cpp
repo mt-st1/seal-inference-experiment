@@ -296,6 +296,48 @@ int main(int argc, char* argv[]) {
         build_network_end_time - build_network_begin_time;
     cout << "Finish building! (" << build_network_sec.count() << " sec)\n"
          << endl;
+
+    /* Execute inference on test data */
+    seal::Ciphertext enc_result;
+    seal::Plaintext plain_result;
+    vector<double> result;
+    duration<double> sum_encryption_sec = duration<double>::zero(),
+                     sum_inference_sec = duration<double>::zero(),
+                     sum_decryption_sec = duration<double>::zero();
+    for (size_t i = 0; i < input_n; ++i) {
+      cout << "\t<Image " << i + 1 << "/" << input_n << ">\n"
+           << "\tEncrypting image per channel..." << endl;
+      /* Encrypt images in step */
+      vector<seal::Ciphertext> enc_channel_wise_packed_image(input_c);
+      auto encrypt_image_begin_time = high_resolution_clock::now();
+      helper::he::encrypt_image(test_images[i], enc_channel_wise_packed_image,
+                                input_c, input_h, input_w, slot_count, encoder,
+                                encryptor, scale);
+      auto encrypt_image_end_time = high_resolution_clock::now();
+      duration<double> encrypt_image_sec =
+          encrypt_image_end_time - encrypt_image_begin_time;
+      sum_encryption_sec += encrypt_image_sec;
+      cout << "\tFinish encrypting! (" << encrypt_image_sec.count() << " sec)\n"
+           << "\t  encrypted image has" << enc_channel_wise_packed_image.size()
+           << " channels" << endl;
+
+      /* Execute inference */
+      cout << "\tExecuting inference..." << endl;
+      auto inference_begin_time = high_resolution_clock::now();
+      seal::Ciphertext enc_result =
+          network.predict(enc_channel_wise_packed_image);
+      auto inference_end_time = high_resolution_clock::now();
+
+      duration<double> inference_sec =
+          inference_end_time - inference_begin_time;
+      sum_inference_sec += inference_sec;
+      cout << "\tFinish executing inference! (" << inference_sec.count()
+           << " sec)\n"
+           << endl;
+
+      /* Decrypt inference results */
+      cout << "\tDecrypting inference result..." << endl;
+    }
   }
 
   /* Fixed-pixel packed ciphertext inference */
