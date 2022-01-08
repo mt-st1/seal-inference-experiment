@@ -274,6 +274,15 @@ int main(int argc, char* argv[]) {
 
   /* Channel-wise packed ciphertext inference */
   if (inference_mode == constants::mode::SINGLE) {
+    INPUT_C = input_c, INPUT_H = input_h, INPUT_W = input_w;
+    INPUT_HW_SLOT_IDX.resize(INPUT_H);
+    int counter = 0;
+    for (size_t i = 0; i < INPUT_H; ++i) {
+      INPUT_HW_SLOT_IDX[i].resize(INPUT_W);
+      for (size_t j = 0; j < INPUT_W; ++j) {
+        INPUT_HW_SLOT_IDX[i][j] = counter++;
+      }
+    }
     using namespace cnn::encrypted;
     /* Build network */
     cout << "Building network from trained model..." << endl;
@@ -307,7 +316,7 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < input_n; ++i) {
       cout << "\t<Image " << i + 1 << "/" << input_n << ">\n"
            << "\tEncrypting image per channel..." << endl;
-      /* Encrypt images in step */
+      /* Encrypt image */
       vector<seal::Ciphertext> enc_channel_wise_packed_image(input_c);
       auto encrypt_image_begin_time = high_resolution_clock::now();
       helper::he::encrypt_image(test_images[i], enc_channel_wise_packed_image,
@@ -340,7 +349,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  /* Fixed-pixel packed ciphertext inference */
+  /* Batch-axis packed ciphertext inference */
   if (inference_mode == constants::mode::BATCH) {
     using namespace cnn::encrypted::batch;
     /* Build network */

@@ -12,18 +12,50 @@ void AvgPool2d::forward(types::float4d& x) const {}
 namespace cnn::encrypted {
 
 AvgPool2d::AvgPool2d(const std::string layer_name,
-                     const seal::Plaintext& mul_factor,
+                     const std::size_t pool_hw_size,
+                     const seal::Plaintext& plain_mul_factor,
                      const std::vector<int>& rotation_map,
                      const std::shared_ptr<helper::he::SealTool> seal_tool)
     : Layer(ELayerType::AVG_POOL_2D, layer_name, seal_tool),
-      mul_factor_(mul_factor),
-      rotation_map_(rotation_map) {}
+      pool_hw_size_(pool_hw_size),
+      plain_mul_factor_(plain_mul_factor),
+      rotation_map_(rotation_map) {
+  if (!OPT_OPTION.enable_fold_pool_coeff) {
+    CONSUMED_LEVEL++;
+  }
+}
 AvgPool2d::AvgPool2d() {}
 AvgPool2d::~AvgPool2d() {}
 
 void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
                         std::vector<seal::Ciphertext>& y_cts) {
-  const size_t input_channel_size = x_cts.size();
+  const std::size_t input_channel_size = x_cts.size();
+  std::vector<seal::Ciphertext> mid_cts(pool_hw_size_);
+  y_cts.resize(input_channel_size);
+
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+  if (OPT_OPTION.enable_fold_pool_coeff) {
+    for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
+      for (std::size_t i = 0; i < pool_hw_size_; ++i) {
+        seal_tool_->evaluator().rotate_vector(
+            x_cts[ci], rotation_map_[i], seal_tool_->galois_keys(), mid_cts[i]);
+      }
+      seal_tool_->evaluator().add_many(mid_cts, y_cts[ci]);
+      y_cts[ci].scale() = seal_tool_->scale();
+    }
+  } else {
+    for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
+      for (std::size_t i = 0; i < pool_hw_size_; ++i) {
+        seal_tool_->evaluator().rotate_vector(
+            x_cts[ci], rotation_map_[i], seal_tool_->galois_keys(), mid_cts[i]);
+        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[i],
+                                                       plain_mul_factor_);
+        seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[i]);
+      }
+      seal_tool_->evaluator().add_many(mid_cts, y_cts[ci]);
+      y_cts[ci].scale() = seal_tool_->scale();
+    }
+  }
 }
 
 }  // namespace cnn::encrypted

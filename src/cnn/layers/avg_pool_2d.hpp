@@ -26,7 +26,8 @@ namespace cnn::encrypted {
 class AvgPool2d : public Layer {
 public:
   AvgPool2d(const std::string layer_name,
-            const seal::Plaintext& mul_factor,
+            const std::size_t pool_hw_size,
+            const seal::Plaintext& plain_mul_factor,
             const std::vector<int>& rotation_map,
             const std::shared_ptr<helper::he::SealTool> seal_tool);
   AvgPool2d();
@@ -36,7 +37,8 @@ public:
                std::vector<seal::Ciphertext>& y_cts) override;
 
 private:
-  seal::Plaintext mul_factor_;
+  std::size_t pool_hw_size_;
+  seal::Plaintext plain_mul_factor_;
   std::vector<int> rotation_map_;
 };
 

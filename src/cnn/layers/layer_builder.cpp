@@ -146,6 +146,20 @@ std::shared_ptr<Layer> LayerBuilder::build(
 
 namespace cnn::encrypted {
 
+template <typename T>
+std::vector<T> flatten_2d_vector(const types::vector2d<T>& vec_2d) {
+  const std::size_t height = vec_2d.size(), width = vec_2d.at(0).size();
+
+  std::vector<T> flattened(height * width);
+  for (size_t h = 0; h < height; ++h) {
+    for (size_t w = 0; w < width; ++w) {
+      flattened[h * width + w] = vec_2d[h][w];
+    }
+  }
+
+  return flattened;
+}
+
 std::shared_ptr<Layer> build_conv_2d(
     picojson::object& layer_info,
     const std::string& model_params_path,
@@ -205,18 +219,24 @@ std::shared_ptr<Layer> build_conv_2d(
   //     types::float3d(
   //         in_channel,
   //         types::float2d(filter_height, std::vector<float>(filter_width))));
-  types::Plaintext4d plain_filters(
+  types::Plaintext3d plain_filters(
       filter_n,
-      types::Plaintext3d(
-          in_channel,
-          types::Plaintext2d(filter_height,
-                             std::vector<seal::Plaintext>(filter_width))));
+      types::Plaintext2d(in_channel, std::vector<seal::Plaintext>(
+                                         filter_height * filter_width)));
   std::vector<seal::Plaintext> plain_biases(filter_n);
 
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
       for (std::size_t fh = 0; fh < filter_height; ++fh) {
         for (std::size_t fw = 0; fw < filter_width; ++fw) {
+          weight =
+              folding_value *
+              flattened_filters[fn * (in_channel * filter_height * filter_w) +
+                                ic * (filter_height * filter_w) +
+                                fh * filter_w + fw];
+          if (fabs(weight) < ROUND_THRESHOLD) {
+            round_value(weight);
+          }
           // filters[fn][ic][fh][fw] =
           //     flattened_filters[fn * (in_channel * filter_height * filter_w)
           //     +
@@ -227,6 +247,14 @@ std::shared_ptr<Layer> build_conv_2d(
     }
   }
 
+  for (std::size_t fn = 0; fn < filter_n; ++fn) {
+    seal_tool->encoder().encode(biases[fn], seal_tool->scale(),
+                                plain_biases[fn]);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL + 1; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[fn]);
+    }
+  }
+
   return std::make_shared<Conv2d>();
 }
 
@@ -234,20 +262,168 @@ std::shared_ptr<Layer> build_avg_pool_2d(
     picojson::object& layer_info,
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
-  return std::make_shared<AvgPool2d>();
+  /* Read structure info */
+  const std::string layer_name = layer_info["name"].get<std::string>();
+  std::cout << "  Building " << layer_name << "..." << std::endl;
+  const picojson::array pool_hw =
+      layer_info["kernel_size"].get<picojson::array>();
+  const std::size_t pool_height = pool_hw[0].get<double>();
+  const std::size_t pool_width = pool_hw[1].get<double>();
+  const picojson::array stride_hw = layer_info["stride"].get<picojson::array>();
+  const std::size_t stride_height = stride_hw[0].get<double>();
+  const std::size_t stride_width = stride_hw[1].get<double>();
+  const picojson::array padding_hw =
+      layer_info["padding"].get<picojson::array>();
+  const std::size_t padding_height = padding_hw[0].get<double>();
+  const std::size_t padding_width = padding_hw[1].get<double>();
+  const std::pair<std::size_t, std::size_t> padding = {padding_height,
+                                                       padding_width};
+
+  OUTPUT_H = static_cast<std::size_t>(
+      ((INPUT_H + padding_height + padding_height - pool_height) /
+       stride_height) +
+      1);
+  OUTPUT_W = static_cast<std::size_t>(
+      ((INPUT_W + padding_width + padding_width - pool_width) / stride_width) +
+      1);
+
+  OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+  for (int i = 0; i < OUTPUT_H; ++i) {
+    OUTPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
+    for (size_t j = 0; j < OUTPUT_W; ++j) {
+      OUTPUT_HW_SLOT_IDX[i][j] =
+          INPUT_HW_SLOT_IDX[i * stride_height][j * stride_width];
+    }
+  }
+
+  int col_idx, row_idx;
+  FILTER_HW_ROTATION_STEP.resize(pool_height);
+  for (int i = 0; i < pool_height; ++i) {
+    FILTER_HW_ROTATION_STEP[i].resize(pool_width);
+    for (int j = 0; j < pool_width; ++j) {
+      col_idx = i - padding_height;
+      row_idx = j - padding_width;
+      if (col_idx < 0) {
+        FILTER_HW_ROTATION_STEP[i][j] =
+            -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+      } else {
+        FILTER_HW_ROTATION_STEP[i][j] = INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+      }
+    }
+  }
+
+  seal::Plaintext plain_mul_factor;
+  std::size_t pool_hw_size = pool_height * pool_width;
+
+  if (OPT_OPTION.enable_fold_pool_coeff) {
+    CURRENT_POOL_MUL_COEFF = 1.0 / pool_hw_size;
+    SHOULD_MUL_POOL_COEFF = true;
+  } else if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
+    double pool_mul_factor = POLY_ACT_HIGHEST_DEG_COEFF / pool_hw_size;
+    std::vector<double> pool_mul_factors_in_slot(seal_tool->slot_count(), 0);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      for (size_t j = 0; j < OUTPUT_W; ++j) {
+        pool_mul_factors_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = pool_mul_factor;
+      }
+    }
+    seal_tool->encoder().encode(pool_mul_factors_in_slot, seal_tool->scale(),
+                                plain_mul_factor);
+    SHOULD_MUL_ACT_COEFF = false;
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_mul_factor);
+    }
+  } else {
+    double pool_mul_factor = 1.0 / pool_hw_size;
+    std::vector<double> pool_mul_factors_in_slot(seal_tool->slot_count(), 0);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      for (size_t j = 0; j < OUTPUT_W; ++j) {
+        pool_mul_factors_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = pool_mul_factor;
+      }
+    }
+    seal_tool->encoder().encode(pool_mul_factors_in_slot, seal_tool->scale(),
+                                plain_mul_factor);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_mul_factor);
+    }
+  }
+
+  return std::make_shared<AvgPool2d>(layer_name, pool_hw_size, plain_mul_factor,
+                                     flatten_2d_vector(FILTER_HW_ROTATION_STEP),
+                                     seal_tool);
 }
 
 std::shared_ptr<Layer> build_activation(
     picojson::object& layer_info,
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
-  return std::make_shared<Activation>();
+  /* Read structure info */
+  const std::string layer_name = layer_info["name"].get<std::string>();
+  const std::string function_name = layer_info["function"].get<std::string>();
+  std::cout << "  Building " << layer_name << " (" << function_name << ")..."
+            << std::endl;
+
+  if ((ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX ||
+       ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) &&
+      OPT_OPTION.enable_fold_act_coeff) {
+    SHOULD_MUL_ACT_COEFF = true;
+  }
+
+  return std::make_shared<Activation>(layer_name, ACTIVATION_TYPE, seal_tool);
 }
 
 std::shared_ptr<Layer> build_batch_norm(
     picojson::object& layer_info,
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
+  /* Read structure info */
+  const std::string layer_name = layer_info["name"].get<std::string>();
+  std::cout << "  Building " << layer_name << "..." << std::endl;
+  const std::string eps_str = layer_info["eps"].get<std::string>();
+  const double eps = std::atof(eps_str.c_str());
+
+  /* Read params data */
+  H5::H5File params_file(model_params_path, H5F_ACC_RDONLY);
+  H5::Group group = params_file.openGroup("/" + layer_name);
+  H5::DataSet gamma_data = group.openDataSet("weight");
+  H5::DataSet beta_data = group.openDataSet("bias");
+  H5::DataSet running_mean_data = group.openDataSet("running_mean");
+  H5::DataSet running_var_data = group.openDataSet("running_var");
+
+  H5::DataSpace gamma_space = gamma_data.getSpace();
+  int gamma_rank = gamma_space.getSimpleExtentNdims();
+  hsize_t gamma_shape[gamma_rank];
+  int ndims = gamma_space.getSimpleExtentDims(gamma_shape);
+
+  const std::size_t num_features = gamma_shape[0];
+
+  std::vector<float> gammas(num_features), betas(num_features),
+      running_means(num_features), running_vars(num_features);
+
+  gamma_data.read(gammas.data(), H5::PredType::NATIVE_FLOAT);
+  beta_data.read(betas.data(), H5::PredType::NATIVE_FLOAT);
+  running_mean_data.read(running_means.data(), H5::PredType::NATIVE_FLOAT);
+  running_var_data.read(running_vars.data(), H5::PredType::NATIVE_FLOAT);
+
+  double weight, bias;
+  std::vector<seal::Plaintext> plain_weights(num_features),
+      plain_biases(num_features);
+
+#ifdef _OPENMP
+#pragma omp parallel for private(weight, bias)
+#endif
+  for (size_t i = 0; i < num_features; ++i) {
+    weight = gammas[i] / std::sqrt(running_vars[i] + eps);
+    bias = betas[i] - (weight * running_means[i]);
+
+    // seal_tool->encoder().encode(weight, seal_tool->scale(),
+    // plain_weights[i]); seal_tool->encoder().encode(bias, seal_tool->scale(),
+    // plain_biases[i]); for (size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+    //   seal_tool->evaluator().mod_switch_to_next_inplace(plain_weights[i]);
+    //   seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
+    // }
+    // seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
+  }
+
   return std::make_shared<BatchNorm>();
 }
 

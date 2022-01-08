@@ -14,10 +14,10 @@ void Activation::forward(types::float2d& x) const {}
 namespace cnn::encrypted {
 
 Activation::Activation(const std::string layer_name,
-                       const std::string& activation,
+                       const EActivationType activation_type,
                        const std::shared_ptr<helper::he::SealTool> seal_tool)
     : Layer(ELayerType::ACTIVATION, layer_name, seal_tool),
-      activation_(activation) {}
+      activation_type_(activation_type) {}
 Activation::Activation() {}
 Activation::~Activation() {}
 

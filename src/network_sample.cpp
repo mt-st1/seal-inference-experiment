@@ -15,18 +15,18 @@ using std::unique_ptr;
 using std::vector;
 
 constexpr size_t INPUT_N = 1;
-constexpr size_t INPUT_C = 1;
-constexpr size_t INPUT_H = 4;
-constexpr size_t INPUT_W = 4;
+constexpr size_t TMP_INPUT_C = 1;
+constexpr size_t TMP_INPUT_H = 4;
+constexpr size_t TMP_INPUT_W = 4;
 constexpr size_t FILTER_N = 1;
 constexpr size_t FILTER_H = 2;
 constexpr size_t FILTER_W = 2;
 constexpr size_t STRIDE = 1;
 constexpr size_t PADDING = 0;
-constexpr size_t OUTPUT_H = std::floor(
-    (static_cast<double>(INPUT_H + 2 * PADDING - FILTER_H) / STRIDE) + 1);
-constexpr size_t OUTPUT_W = std::floor(
-    (static_cast<double>(INPUT_W + 2 * PADDING - FILTER_W) / STRIDE) + 1);
+constexpr size_t TMP_OUTPUT_H = std::floor(
+    (static_cast<double>(TMP_INPUT_H + 2 * PADDING - FILTER_H) / STRIDE) + 1);
+constexpr size_t TMP_OUTPUT_W = std::floor(
+    (static_cast<double>(TMP_INPUT_W + 2 * PADDING - FILTER_W) / STRIDE) + 1);
 
 types::float4d generate_inputs(const size_t& n,
                                const size_t& c,
@@ -158,9 +158,10 @@ int main(int argc, char* argv[]) {
 
   // Normal prediction
   {
-    types::float4d images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
+    types::float4d images =
+        generate_inputs(INPUT_N, TMP_INPUT_C, TMP_INPUT_H, TMP_INPUT_W);
     types::float4d filters =
-        generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
+        generate_filters(FILTER_N, TMP_INPUT_C, FILTER_H, FILTER_W);
     vector<float> biases(FILTER_N, 0);
 
     cnn::Network network;
@@ -179,16 +180,18 @@ int main(int argc, char* argv[]) {
 
   // Encrypted prediction
   {
-    types::float4d images = generate_inputs(INPUT_N, INPUT_C, INPUT_H, INPUT_W);
+    types::float4d images =
+        generate_inputs(INPUT_N, TMP_INPUT_C, TMP_INPUT_H, TMP_INPUT_W);
     types::float4d filters =
-        generate_filters(FILTER_N, INPUT_C, FILTER_H, FILTER_W);
+        generate_filters(FILTER_N, TMP_INPUT_C, FILTER_H, FILTER_W);
     vector<float> biases(FILTER_N, 0);
 
     types::double3d flattened_hw_inputs = flatten_images_per_channel(images);
     seal::Plaintext pt;
-    types::Ciphertext2d inputs_cts(INPUT_N, vector<seal::Ciphertext>(INPUT_C));
+    types::Ciphertext2d inputs_cts(INPUT_N,
+                                   vector<seal::Ciphertext>(TMP_INPUT_C));
     for (size_t in; in < INPUT_N; ++in) {
-      for (size_t ic; ic < INPUT_C; ++ic) {
+      for (size_t ic; ic < TMP_INPUT_C; ++ic) {
         encoder.encode(flattened_hw_inputs[in][ic], scale, pt);
         encryptor.encrypt(pt, inputs_cts[in][ic]);
       }
@@ -196,17 +199,18 @@ int main(int argc, char* argv[]) {
 
     size_t filter_hw_size = FILTER_H * FILTER_W;
     types::double4d slot_filters_values(
-        FILTER_N, types::double3d(
-                      INPUT_C, types::double2d(filter_hw_size,
-                                               vector<double>(slot_count, 0))));
+        FILTER_N,
+        types::double3d(
+            TMP_INPUT_C,
+            types::double2d(filter_hw_size, vector<double>(slot_count, 0))));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
-      for (size_t ic = 0; ic < INPUT_C; ++ic) {
-        for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
-          for (size_t ow = 0; ow < OUTPUT_W; ++ow) {
+      for (size_t ic = 0; ic < TMP_INPUT_C; ++ic) {
+        for (size_t oh = 0; oh < TMP_OUTPUT_H; ++oh) {
+          for (size_t ow = 0; ow < TMP_OUTPUT_W; ++ow) {
             for (size_t fh = 0; fh < FILTER_H; ++fh) {
               for (size_t fw = 0; fw < FILTER_W; ++fw) {
-                slot_filters_values[fn][ic][fh * FILTER_H + fw][oh * INPUT_H +
-                                                                ow] =
+                slot_filters_values[fn][ic][fh * FILTER_H +
+                                            fw][oh * TMP_INPUT_H + ow] =
                     static_cast<double>(filters[fn][ic][fh][fw]);
               }
             }
@@ -215,10 +219,10 @@ int main(int argc, char* argv[]) {
       }
     }
     types::Plaintext3d filters_pts(
-        FILTER_N,
-        types::Plaintext2d(INPUT_C, vector<seal::Plaintext>(filter_hw_size)));
+        FILTER_N, types::Plaintext2d(TMP_INPUT_C,
+                                     vector<seal::Plaintext>(filter_hw_size)));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
-      for (size_t ic = 0; ic < INPUT_C; ++ic) {
+      for (size_t ic = 0; ic < TMP_INPUT_C; ++ic) {
         for (size_t i = 0; i < filter_hw_size; ++i) {
           encoder.encode(slot_filters_values[fn][ic][i], scale,
                          filters_pts[fn][ic][i]);
@@ -228,9 +232,9 @@ int main(int argc, char* argv[]) {
 
     types::double2d slot_biases_values(FILTER_N, vector<double>(slot_count, 0));
     for (size_t fn = 0; fn < FILTER_N; ++fn) {
-      for (size_t oh = 0; oh < OUTPUT_H; ++oh) {
-        for (size_t ow = 0; ow < OUTPUT_W; ++ow) {
-          slot_biases_values[fn][oh * INPUT_H + ow] =
+      for (size_t oh = 0; oh < TMP_OUTPUT_H; ++oh) {
+        for (size_t ow = 0; ow < TMP_OUTPUT_W; ++ow) {
+          slot_biases_values[fn][oh * TMP_INPUT_H + ow] =
               static_cast<double>(biases[fn]);
         }
       }
@@ -243,7 +247,7 @@ int main(int argc, char* argv[]) {
     vector<int> rotation_map(filter_hw_size);
     for (size_t i = 0; i < FILTER_H; ++i) {
       for (size_t j = 0; j < FILTER_W; ++j) {
-        rotation_map[i * FILTER_H + j] = i * INPUT_H + j;
+        rotation_map[i * FILTER_H + j] = i * TMP_INPUT_H + j;
       }
     }
 
@@ -265,7 +269,7 @@ int main(int argc, char* argv[]) {
       decryptor.decrypt(enc_pred_result, result_pt);
       encoder.decode(result_pt, decrypted_result);
 
-      for (size_t hw = 0; hw < INPUT_H * INPUT_W; ++hw) {
+      for (size_t hw = 0; hw < TMP_INPUT_H * TMP_INPUT_W; ++hw) {
         std::cout << "decrypted_result[" << hw << "]: " << decrypted_result[hw]
                   << std::endl;
       }

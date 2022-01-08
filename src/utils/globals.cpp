@@ -8,3 +8,7 @@ double CURRENT_POOL_MUL_COEFF;
 bool SHOULD_MUL_ACT_COEFF;
 bool SHOULD_MUL_POOL_COEFF;
 EActivationType ACTIVATION_TYPE;
+std::size_t INPUT_C, INPUT_H, INPUT_W, OUTPUT_C, OUTPUT_H, OUTPUT_W;
+std::vector<std::vector<int>> INPUT_HW_SLOT_IDX;
+std::vector<std::vector<int>> OUTPUT_HW_SLOT_IDX;
+std::vector<std::vector<int>> FILTER_HW_ROTATION_STEP;

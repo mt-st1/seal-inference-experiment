@@ -99,6 +99,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   std::vector<seal::Ciphertext> mid_cts(input_channel_size * filter_hw_size);
   y_cts.resize(filter_count);
 
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
       for (size_t i = 0; i < filter_hw_size; ++i) {
