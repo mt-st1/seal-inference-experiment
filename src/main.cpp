@@ -274,13 +274,15 @@ int main(int argc, char* argv[]) {
 
   /* Channel-wise packed ciphertext inference */
   if (inference_mode == constants::mode::SINGLE) {
-    INPUT_C = input_c, INPUT_H = input_h, INPUT_W = input_w;
-    INPUT_HW_SLOT_IDX.resize(INPUT_H);
-    int counter = 0;
-    for (size_t i = 0; i < INPUT_H; ++i) {
-      INPUT_HW_SLOT_IDX[i].resize(INPUT_W);
-      for (size_t j = 0; j < INPUT_W; ++j) {
-        INPUT_HW_SLOT_IDX[i][j] = counter++;
+    {
+      INPUT_C = input_c, INPUT_H = input_h, INPUT_W = input_w;
+      INPUT_HW_SLOT_IDX.resize(INPUT_H);
+      int counter = 0;
+      for (size_t i = 0; i < INPUT_H; ++i) {
+        INPUT_HW_SLOT_IDX[i].resize(INPUT_W);
+        for (size_t j = 0; j < INPUT_W; ++j) {
+          INPUT_HW_SLOT_IDX[i][j] = counter++;
+        }
       }
     }
     using namespace cnn::encrypted;

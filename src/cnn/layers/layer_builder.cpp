@@ -179,6 +179,40 @@ std::shared_ptr<Layer> build_conv_2d(
   const std::size_t padding_h = padding_hw[0].get<double>();
   const std::size_t padding_w = padding_hw[1].get<double>();
 
+  {
+    OUTPUT_C = filter_size;
+    OUTPUT_H = static_cast<std::size_t>(
+        ((INPUT_H + padding_h + padding_h - filter_h) / stride_h) + 1);
+    OUTPUT_W = static_cast<std::size_t>(
+        ((INPUT_W + padding_w + padding_w - filter_w) / stride_w) + 1);
+
+    OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      OUTPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        OUTPUT_HW_SLOT_IDX[i][j] =
+            INPUT_HW_SLOT_IDX[i * stride_h][j * stride_w];
+      }
+    }
+
+    int col_idx, row_idx;
+    KERNEL_HW_ROTATION_STEP.resize(filter_h);
+    for (int i = 0; i < filter_h; ++i) {
+      KERNEL_HW_ROTATION_STEP.resize(filter_w);
+      for (int j = 0; j < filter_w; ++j) {
+        col_idx = i - padding_h;
+        row_idx = j - padding_w;
+        if (col_idx < 0) {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+        } else {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+        }
+      }
+    }
+  }
+
   /* Read params data */
   H5::H5File params_file(model_params_path, H5F_ACC_RDONLY);
   H5::Group group = params_file.openGroup("/" + layer_name);
@@ -225,10 +259,18 @@ std::shared_ptr<Layer> build_conv_2d(
                                          filter_height * filter_width)));
   std::vector<seal::Plaintext> plain_biases(filter_n);
 
+  int counter;
+  std::vector<double> filter_values_in_slot(seal_tool->slot_count(), 0);
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
+      counter = 0;
       for (std::size_t fh = 0; fh < filter_height; ++fh) {
         for (std::size_t fw = 0; fw < filter_width; ++fw) {
+          // filters[fn][ic][fh][fw] =
+          //     flattened_filters[fn * (in_channel * filter_height * filter_w)
+          //     +
+          //                       ic * (filter_height * filter_w) +
+          //                       fh * filter_w + fw];
           weight =
               folding_value *
               flattened_filters[fn * (in_channel * filter_height * filter_w) +
@@ -237,25 +279,53 @@ std::shared_ptr<Layer> build_conv_2d(
           if (fabs(weight) < ROUND_THRESHOLD) {
             round_value(weight);
           }
-          // filters[fn][ic][fh][fw] =
-          //     flattened_filters[fn * (in_channel * filter_height * filter_w)
-          //     +
-          //                       ic * (filter_height * filter_w) +
-          //                       fh * filter_w + fw];
+          for (int i = 0; i < OUTPUT_H; ++i) {
+            for (int j = 0; j < OUTPUT_W; ++j) {
+              filter_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = weight;
+            }
+          }
+          seal_tool->encoder().encode(filter_values_in_slot, seal_tool->scale(),
+                                      plain_filters[fn][ic][counter]);
+          for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+            seal_tool->evaluator().mod_switch_to_next_inplace(
+                plain_filters[fn][ic][counter]);
+          }
+          counter++;
         }
       }
     }
   }
 
+  std::vector<double> bias_values_in_slot(seal_tool->slot_count(), 0);
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
-    seal_tool->encoder().encode(biases[fn], seal_tool->scale(),
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        bias_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = biases[fn];
+      }
+    }
+    seal_tool->encoder().encode(bias_values_in_slot, seal_tool->scale(),
                                 plain_biases[fn]);
     for (std::size_t lv = 0; lv < CONSUMED_LEVEL + 1; ++lv) {
       seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[fn]);
     }
   }
 
-  return std::make_shared<Conv2d>();
+  {
+    INPUT_C = OUTPUT_C;
+    INPUT_H = OUTPUT_H;
+    INPUT_W = OUTPUT_W;
+    INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
+      }
+    }
+  }
+
+  return std::make_shared<Conv2d>(layer_name, plain_filters, plain_biases,
+                                  flatten_2d_vector(KERNEL_HW_ROTATION_STEP),
+                                  seal_tool);
 }
 
 std::shared_ptr<Layer> build_avg_pool_2d(
@@ -279,35 +349,39 @@ std::shared_ptr<Layer> build_avg_pool_2d(
   const std::pair<std::size_t, std::size_t> padding = {padding_height,
                                                        padding_width};
 
-  OUTPUT_H = static_cast<std::size_t>(
-      ((INPUT_H + padding_height + padding_height - pool_height) /
-       stride_height) +
-      1);
-  OUTPUT_W = static_cast<std::size_t>(
-      ((INPUT_W + padding_width + padding_width - pool_width) / stride_width) +
-      1);
+  {
+    OUTPUT_H = static_cast<std::size_t>(
+        ((INPUT_H + padding_height + padding_height - pool_height) /
+         stride_height) +
+        1);
+    OUTPUT_W = static_cast<std::size_t>(
+        ((INPUT_W + padding_width + padding_width - pool_width) /
+         stride_width) +
+        1);
 
-  OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
-  for (int i = 0; i < OUTPUT_H; ++i) {
-    OUTPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
-    for (size_t j = 0; j < OUTPUT_W; ++j) {
-      OUTPUT_HW_SLOT_IDX[i][j] =
-          INPUT_HW_SLOT_IDX[i * stride_height][j * stride_width];
+    OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      OUTPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        OUTPUT_HW_SLOT_IDX[i][j] =
+            INPUT_HW_SLOT_IDX[i * stride_height][j * stride_width];
+      }
     }
-  }
 
-  int col_idx, row_idx;
-  FILTER_HW_ROTATION_STEP.resize(pool_height);
-  for (int i = 0; i < pool_height; ++i) {
-    FILTER_HW_ROTATION_STEP[i].resize(pool_width);
-    for (int j = 0; j < pool_width; ++j) {
-      col_idx = i - padding_height;
-      row_idx = j - padding_width;
-      if (col_idx < 0) {
-        FILTER_HW_ROTATION_STEP[i][j] =
-            -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
-      } else {
-        FILTER_HW_ROTATION_STEP[i][j] = INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+    int col_idx, row_idx;
+    KERNEL_HW_ROTATION_STEP.resize(pool_height);
+    for (int i = 0; i < pool_height; ++i) {
+      KERNEL_HW_ROTATION_STEP[i].resize(pool_width);
+      for (int j = 0; j < pool_width; ++j) {
+        col_idx = i - padding_height;
+        row_idx = j - padding_width;
+        if (col_idx < 0) {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+        } else {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+        }
       }
     }
   }
@@ -347,8 +421,20 @@ std::shared_ptr<Layer> build_avg_pool_2d(
     }
   }
 
+  {
+    INPUT_H = OUTPUT_H;
+    INPUT_W = OUTPUT_W;
+    INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
+      }
+    }
+  }
+
   return std::make_shared<AvgPool2d>(layer_name, pool_hw_size, plain_mul_factor,
-                                     flatten_2d_vector(FILTER_HW_ROTATION_STEP),
+                                     flatten_2d_vector(KERNEL_HW_ROTATION_STEP),
                                      seal_tool);
 }
 

@@ -87,7 +87,9 @@ Conv2d::Conv2d(const std::string layer_name,
     : Layer(ELayerType::CONV_2D, layer_name, seal_tool),
       filters_pts_(filters_pts),
       biases_pts_(biases_pts),
-      rotation_map_(rotation_map) {}
+      rotation_map_(rotation_map) {
+  CONSUMED_LEVEL++;
+}
 Conv2d::Conv2d() {}
 Conv2d::~Conv2d() {}
 

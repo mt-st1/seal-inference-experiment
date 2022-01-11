@@ -39,4 +39,4 @@ constexpr double ROUND_THRESHOLD = 1e-7;
 extern std::size_t INPUT_C, INPUT_H, INPUT_W, OUTPUT_C, OUTPUT_H, OUTPUT_W;
 extern std::vector<std::vector<int>> INPUT_HW_SLOT_IDX;
 extern std::vector<std::vector<int>> OUTPUT_HW_SLOT_IDX;
-extern std::vector<std::vector<int>> FILTER_HW_ROTATION_STEP;
+extern std::vector<std::vector<int>> KERNEL_HW_ROTATION_STEP;
