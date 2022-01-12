@@ -174,10 +174,19 @@ std::shared_ptr<Layer> build_conv_2d(
   const picojson::array stride_hw = layer_info["stride"].get<picojson::array>();
   const std::size_t stride_h = stride_hw[0].get<double>();
   const std::size_t stride_w = stride_hw[1].get<double>();
-  const picojson::array padding_hw =
-      layer_info["padding"].get<picojson::array>();
-  const std::size_t padding_h = padding_hw[0].get<double>();
-  const std::size_t padding_w = padding_hw[1].get<double>();
+  std::pair<std::string, std::pair<std::size_t, std::size_t>> padding;
+  std::size_t padding_h, padding_w;
+  if (layer_info["padding"].is<std::string>()) {
+    const std::string pad_str = layer_info["padding"].get<std::string>();
+    padding_h = 0, padding_w = 0;
+    padding = {pad_str, {padding_h, padding_w}};
+  } else if (layer_info["padding"].is<picojson::array>()) {
+    const picojson::array padding_hw =
+        layer_info["padding"].get<picojson::array>();
+    padding_h = padding_hw[0].get<double>();
+    padding_w = padding_hw[1].get<double>();
+    padding = {"", {padding_h, padding_w}};
+  }
 
   {
     OUTPUT_C = filter_size;
@@ -260,7 +269,7 @@ std::shared_ptr<Layer> build_conv_2d(
   std::vector<seal::Plaintext> plain_biases(filter_n);
 
   int counter;
-  std::vector<double> filter_values_in_slot(seal_tool->slot_count(), 0);
+  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
       counter = 0;
@@ -281,10 +290,10 @@ std::shared_ptr<Layer> build_conv_2d(
           }
           for (int i = 0; i < OUTPUT_H; ++i) {
             for (int j = 0; j < OUTPUT_W; ++j) {
-              filter_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = weight;
+              weight_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = weight;
             }
           }
-          seal_tool->encoder().encode(filter_values_in_slot, seal_tool->scale(),
+          seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
                                       plain_filters[fn][ic][counter]);
           for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
             seal_tool->evaluator().mod_switch_to_next_inplace(
@@ -448,13 +457,47 @@ std::shared_ptr<Layer> build_activation(
   std::cout << "  Building " << layer_name << " (" << function_name << ")..."
             << std::endl;
 
+  seal::Plaintext plain_coeff;
+  std::size_t num_mod_switch;
+  if (ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX) {
+    if (OPT_OPTION.enable_fold_act_coeff) {
+      num_mod_switch = CONSUMED_LEVEL;
+    } else {
+      num_mod_switch = CONSUMED_LEVEL + 1;
+    }
+  } else if (ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) {
+    if (OPT_OPTION.enable_fold_act_coeff) {
+      num_mod_switch = CONSUMED_LEVEL + 1;
+    } else {
+      num_mod_switch = CONSUMED_LEVEL + 2;
+    }
+  }
+
+  std::vector<seal::Plaintext> plain_poly_coeffs;
+  for (const double& coeff : POLY_ACT_COEFFS) {
+    std::vector<double> coeff_values_in_slot(seal_tool->slot_count(), 0);
+    for (int i = 0; i < INPUT_H; ++i) {
+      for (int j = 0; j < INPUT_W; ++j) {
+        coeff_values_in_slot[INPUT_HW_SLOT_IDX[i][j]] = coeff;
+      }
+    }
+    seal_tool->encoder().encode(coeff_values_in_slot, seal_tool->scale(),
+                                plain_coeff);
+    for (std::size_t lv = 0; lv < num_mod_switch; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_coeff);
+    }
+    plain_poly_coeffs.push_back(plain_coeff);
+  }
+  seal_tool->evaluator().mod_switch_to_next_inplace(plain_poly_coeffs.back());
+
   if ((ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX ||
        ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) &&
       OPT_OPTION.enable_fold_act_coeff) {
     SHOULD_MUL_ACT_COEFF = true;
   }
 
-  return std::make_shared<Activation>(layer_name, ACTIVATION_TYPE, seal_tool);
+  return std::make_shared<Activation>(layer_name, ACTIVATION_TYPE,
+                                      plain_poly_coeffs, seal_tool);
 }
 
 std::shared_ptr<Layer> build_batch_norm(
@@ -491,6 +534,8 @@ std::shared_ptr<Layer> build_batch_norm(
   running_var_data.read(running_vars.data(), H5::PredType::NATIVE_FLOAT);
 
   double weight, bias;
+  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0),
+      bias_values_in_slot(seal_tool->slot_count(), 0);
   std::vector<seal::Plaintext> plain_weights(num_features),
       plain_biases(num_features);
 
@@ -500,17 +545,26 @@ std::shared_ptr<Layer> build_batch_norm(
   for (size_t i = 0; i < num_features; ++i) {
     weight = gammas[i] / std::sqrt(running_vars[i] + eps);
     bias = betas[i] - (weight * running_means[i]);
+    for (int i = 0; i < INPUT_H; ++i) {
+      for (int j = 0; j < INPUT_W; ++j) {
+        weight_values_in_slot[INPUT_HW_SLOT_IDX[i][j]] = weight;
+        bias_values_in_slot[INPUT_HW_SLOT_IDX[i][j]] = bias;
+      }
+    }
 
-    // seal_tool->encoder().encode(weight, seal_tool->scale(),
-    // plain_weights[i]); seal_tool->encoder().encode(bias, seal_tool->scale(),
-    // plain_biases[i]); for (size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
-    //   seal_tool->evaluator().mod_switch_to_next_inplace(plain_weights[i]);
-    //   seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
-    // }
-    // seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
+    seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
+                                plain_weights[i]);
+    seal_tool->encoder().encode(bias_values_in_slot, seal_tool->scale(),
+                                plain_biases[i]);
+    for (size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_weights[i]);
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
+    }
+    seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[i]);
   }
 
-  return std::make_shared<BatchNorm>();
+  return std::make_shared<BatchNorm>(layer_name, plain_weights, plain_biases,
+                                     seal_tool);
 }
 
 std::shared_ptr<Layer> build_linear(
@@ -525,6 +579,349 @@ std::shared_ptr<Layer> build_flatten(
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
   return std::make_shared<Flatten>();
+}
+
+std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
+    picojson::object& conv_layer_info,
+    picojson::object& bn_layer_info,
+    const std::string& layer_name,
+    const std::string& model_params_path,
+    const std::shared_ptr<helper::he::SealTool> seal_tool) {
+  /* Read Conv2d info */
+  const std::string conv_layer_name =
+      conv_layer_info["name"].get<std::string>();
+  const std::size_t filter_size = conv_layer_info["filters"].get<double>();
+  const picojson::array filter_hw =
+      conv_layer_info["kernel_size"].get<picojson::array>();
+  const std::size_t filter_h = filter_hw[0].get<double>();
+  const std::size_t filter_w = filter_hw[1].get<double>();
+  const picojson::array stride_hw =
+      conv_layer_info["stride"].get<picojson::array>();
+  const std::size_t stride_h = stride_hw[0].get<double>();
+  const std::size_t stride_w = stride_hw[1].get<double>();
+  std::pair<std::string, std::pair<std::size_t, std::size_t>> padding;
+  std::size_t padding_h, padding_w;
+  if (conv_layer_info["padding"].is<std::string>()) {
+    const std::string pad_str = conv_layer_info["padding"].get<std::string>();
+    padding_h = 0, padding_w = 0;
+    padding = {pad_str, {padding_h, padding_w}};
+  } else if (conv_layer_info["padding"].is<picojson::array>()) {
+    const picojson::array padding_hw =
+        conv_layer_info["padding"].get<picojson::array>();
+    padding_h = padding_hw[0].get<double>();
+    padding_w = padding_hw[1].get<double>();
+    padding = {"", {padding_h, padding_w}};
+  }
+
+  {
+    OUTPUT_C = filter_size;
+    OUTPUT_H = static_cast<std::size_t>(
+        ((INPUT_H + padding_h + padding_h - filter_h) / stride_h) + 1);
+    OUTPUT_W = static_cast<std::size_t>(
+        ((INPUT_W + padding_w + padding_w - filter_w) / stride_w) + 1);
+
+    OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      OUTPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        OUTPUT_HW_SLOT_IDX[i][j] =
+            INPUT_HW_SLOT_IDX[i * stride_h][j * stride_w];
+      }
+    }
+
+    int col_idx, row_idx;
+    KERNEL_HW_ROTATION_STEP.resize(filter_h);
+    for (int i = 0; i < filter_h; ++i) {
+      KERNEL_HW_ROTATION_STEP.resize(filter_w);
+      for (int j = 0; j < filter_w; ++j) {
+        col_idx = i - padding_h;
+        row_idx = j - padding_w;
+        if (col_idx < 0) {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+        } else {
+          KERNEL_HW_ROTATION_STEP[i][j] =
+              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+        }
+      }
+    }
+  }
+
+  // Read params of Conv2d
+  H5::H5File params_file(model_params_path, H5F_ACC_RDONLY);
+  H5::Group conv_group = params_file.openGroup("/" + conv_layer_name);
+  H5::DataSet conv_weight_data = conv_group.openDataSet("weight");
+  H5::DataSet conv_bias_data = conv_group.openDataSet("bias");
+
+  H5::DataSpace conv_weight_space = conv_weight_data.getSpace();
+  int conv_weight_rank = conv_weight_space.getSimpleExtentNdims();
+  hsize_t conv_weight_shape[conv_weight_rank];
+  int conv_ndims = conv_weight_space.getSimpleExtentDims(conv_weight_shape);
+
+  const std::size_t filter_n = conv_weight_shape[0],
+                    in_channel = conv_weight_shape[1],
+                    filter_height = conv_weight_shape[2],
+                    filter_width = conv_weight_shape[3];
+  std::vector<float> conv_flattened_filters(filter_n * in_channel *
+                                            filter_height * filter_width);
+  std::vector<float> conv_biases(filter_n);
+
+  conv_weight_data.read(conv_flattened_filters.data(),
+                        H5::PredType::NATIVE_FLOAT);
+  conv_bias_data.read(conv_biases.data(), H5::PredType::NATIVE_FLOAT);
+
+  /* Read BatchNorm info */
+  const std::string bn_layer_name = bn_layer_info["name"].get<std::string>();
+  const std::string eps_str = bn_layer_info["eps"].get<std::string>();
+  const double eps = std::atof(eps_str.c_str());
+
+  // Read params of BatchNorm
+  H5::Group bn_group = params_file.openGroup("/" + bn_layer_name);
+  H5::DataSet bn_gamma_data = bn_group.openDataSet("weight");
+  H5::DataSet bn_beta_data = bn_group.openDataSet("bias");
+  H5::DataSet bn_running_mean_data = bn_group.openDataSet("running_mean");
+  H5::DataSet bn_running_var_data = bn_group.openDataSet("running_var");
+
+  H5::DataSpace bn_gamma_space = bn_gamma_data.getSpace();
+  int bn_gamma_rank = bn_gamma_space.getSimpleExtentNdims();
+  hsize_t bn_gamma_shape[bn_gamma_rank];
+  int bn_ndims = bn_gamma_space.getSimpleExtentDims(bn_gamma_shape);
+
+  const std::size_t num_features = bn_gamma_shape[0];
+
+  std::vector<float> bn_gammas(num_features), bn_betas(num_features),
+      bn_running_means(num_features), bn_running_vars(num_features);
+
+  bn_gamma_data.read(bn_gammas.data(), H5::PredType::NATIVE_FLOAT);
+  bn_beta_data.read(bn_betas.data(), H5::PredType::NATIVE_FLOAT);
+  bn_running_mean_data.read(bn_running_means.data(),
+                            H5::PredType::NATIVE_FLOAT);
+  bn_running_var_data.read(bn_running_vars.data(), H5::PredType::NATIVE_FLOAT);
+
+  /* Calculate fused weights & biases */
+  assert(filter_n == num_features);
+
+  double folding_value = 1;
+  if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF &&
+      OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF * CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+    SHOULD_MUL_POOL_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_POOL_COEFF = false;
+  }
+
+  std::vector<double> bn_weights(filter_n), bn_biases(filter_n);
+  double fused_weight, fused_bias;
+  types::Plaintext3d plain_filters(
+      filter_n,
+      types::Plaintext2d(in_channel, std::vector<seal::Plaintext>(
+                                         filter_height * filter_width)));
+  std::vector<seal::Plaintext> plain_biases(filter_n);
+
+  std::vector<double> bias_values_in_slot(seal_tool->slot_count(), 0);
+  // plain_biases
+#ifdef _OPENMP
+#pragma omp parallel for private(fused_bias)
+#endif
+  for (std::size_t fn = 0; fn < filter_n; ++fn) {
+    bn_weights[fn] = bn_gammas[fn] / std::sqrt(bn_running_vars[fn] + eps);
+    bn_biases[fn] = bn_betas[fn] - (bn_weights[fn] * bn_running_means[fn]);
+    fused_bias = conv_biases[fn] * bn_weights[fn] + bn_biases[fn];
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        bias_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = fused_bias;
+      }
+    }
+    seal_tool->encoder().encode(bias_values_in_slot, seal_tool->scale(),
+                                plain_biases[fn]);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL + 1; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[fn]);
+    }
+  }
+
+  int counter;
+  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
+  // plain_weights
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) private(fused_weight)
+#endif
+  for (std::size_t fn = 0; fn < filter_n; ++fn) {
+    for (std::size_t ic = 0; ic < in_channel; ++ic) {
+      counter = 0;
+      for (std::size_t fh = 0; fh < filter_height; ++fh) {
+        for (std::size_t fw = 0; fw < filter_width; ++fw) {
+          fused_weight =
+              folding_value *
+              conv_flattened_filters[fn * (in_channel * filter_height *
+                                           filter_w) +
+                                     ic * (filter_height * filter_w) +
+                                     fh * filter_w + fw] *
+              bn_weights[fn];
+          if (fabs(fused_weight) < ROUND_THRESHOLD) {
+            // std::cout << "fused_weight: " << fused_weight << std::endl;
+            round_value(fused_weight);
+          }
+          for (int i = 0; i < OUTPUT_H; ++i) {
+            for (int j = 0; j < OUTPUT_W; ++j) {
+              weight_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = fused_weight;
+            }
+          }
+          seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
+                                      plain_filters[fn][ic][counter]);
+          for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+            seal_tool->evaluator().mod_switch_to_next_inplace(
+                plain_filters[fn][ic][counter]);
+          }
+          counter++;
+        }
+      }
+    }
+  }
+
+  {
+    INPUT_C = OUTPUT_C;
+    INPUT_H = OUTPUT_H;
+    INPUT_W = OUTPUT_W;
+    INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      for (int j = 0; j < OUTPUT_W; ++j) {
+        INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
+      }
+    }
+  }
+
+  return std::make_shared<Conv2d>(layer_name, plain_filters, plain_biases,
+                                  flatten_2d_vector(KERNEL_HW_ROTATION_STEP),
+                                  seal_tool);
+}
+
+std::shared_ptr<Layer> build_linear_fused_batch_norm(
+    picojson::object& linear_layer_info,
+    picojson::object& bn_layer_info,
+    const std::string& layer_name,
+    const std::string& model_params_path,
+    const std::shared_ptr<helper::he::SealTool> seal_tool) {
+  /* Read Linear info */
+  const std::string linear_layer_name =
+      linear_layer_info["name"].get<std::string>();
+  const std::size_t unit_size = linear_layer_info["units"].get<double>();
+
+  /* Read params of Linear */
+  H5::H5File params_file(model_params_path, H5F_ACC_RDONLY);
+  H5::Group group = params_file.openGroup("/" + linear_layer_name);
+  H5::DataSet linear_weight_data = group.openDataSet("weight");
+  H5::DataSet linear_bias_data = group.openDataSet("bias");
+
+  H5::DataSpace linear_weight_space = linear_weight_data.getSpace();
+  int linear_weight_rank = linear_weight_space.getSimpleExtentNdims();
+  hsize_t linear_weight_shape[linear_weight_rank];
+  int linear_ndims =
+      linear_weight_space.getSimpleExtentDims(linear_weight_shape);
+
+  const std::size_t out_channel = linear_weight_shape[0],
+                    in_channel = linear_weight_shape[1];
+  std::vector<float> linear_flattened_weights(out_channel * in_channel);
+  std::vector<float> linear_biases(out_channel);
+
+  linear_weight_data.read(linear_flattened_weights.data(),
+                          H5::PredType::NATIVE_FLOAT);
+  linear_bias_data.read(linear_biases.data(), H5::PredType::NATIVE_FLOAT);
+
+  /* Read BatchNorm info */
+  const std::string bn_layer_name = bn_layer_info["name"].get<std::string>();
+  const std::string eps_str = bn_layer_info["eps"].get<std::string>();
+  const double eps = std::atof(eps_str.c_str());
+
+  // Read params of BatchNorm
+  H5::Group bn_group = params_file.openGroup("/" + bn_layer_name);
+  H5::DataSet bn_gamma_data = bn_group.openDataSet("weight");
+  H5::DataSet bn_beta_data = bn_group.openDataSet("bias");
+  H5::DataSet bn_running_mean_data = bn_group.openDataSet("running_mean");
+  H5::DataSet bn_running_var_data = bn_group.openDataSet("running_var");
+
+  H5::DataSpace bn_gamma_space = bn_gamma_data.getSpace();
+  int bn_gamma_rank = bn_gamma_space.getSimpleExtentNdims();
+  hsize_t bn_gamma_shape[bn_gamma_rank];
+  int bn_ndims = bn_gamma_space.getSimpleExtentDims(bn_gamma_shape);
+
+  const std::size_t num_features = bn_gamma_shape[0];
+
+  std::vector<float> bn_gammas(num_features), bn_betas(num_features),
+      bn_running_means(num_features), bn_running_vars(num_features);
+
+  bn_gamma_data.read(bn_gammas.data(), H5::PredType::NATIVE_FLOAT);
+  bn_beta_data.read(bn_betas.data(), H5::PredType::NATIVE_FLOAT);
+  bn_running_mean_data.read(bn_running_means.data(),
+                            H5::PredType::NATIVE_FLOAT);
+  bn_running_var_data.read(bn_running_vars.data(), H5::PredType::NATIVE_FLOAT);
+
+  /* Calculate fused weights & biases */
+  assert(out_channel == num_features);
+
+  double folding_value = 1;
+  if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF &&
+      OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF * CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+    SHOULD_MUL_POOL_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_POOL_COEFF = false;
+  }
+
+  std::vector<double> bn_weights(num_features), bn_biases(num_features);
+  double fused_weight, fused_bias;
+  types::Plaintext2d plain_weights(out_channel,
+                                   std::vector<seal::Plaintext>(in_channel));
+  std::vector<seal::Plaintext> plain_biases(num_features);
+
+  // plain_biases
+#ifdef _OPENMP
+#pragma omp parallel for private(fused_bias)
+#endif
+  for (std::size_t oc = 0; oc < out_channel; ++oc) {
+    bn_weights[oc] = bn_gammas[oc] / std::sqrt(bn_running_vars[oc] + eps);
+    bn_biases[oc] = bn_betas[oc] - (bn_weights[oc] * bn_running_means[oc]);
+    fused_bias = linear_biases[oc] * bn_weights[oc] + bn_biases[oc];
+    seal_tool->encoder().encode(fused_bias, seal_tool->scale(),
+                                plain_biases[oc]);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL + 1; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[oc]);
+    }
+  }
+
+  // plain_weights
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) private(fused_weight)
+#endif
+  for (std::size_t oc = 0; oc < out_channel; ++oc) {
+    for (std::size_t ic = 0; ic < in_channel; ++ic) {
+      fused_weight = folding_value *
+                     linear_flattened_weights[oc * in_channel + ic] *
+                     bn_weights[oc];
+      if (fabs(fused_weight) < ROUND_THRESHOLD) {
+        // std::cout << "fused_weight: " << fused_weight << std::endl;
+        round_value(fused_weight);
+      }
+      seal_tool->encoder().encode(fused_weight, seal_tool->scale(),
+                                  plain_weights[oc][ic]);
+      for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+        seal_tool->evaluator().mod_switch_to_next_inplace(
+            plain_weights[oc][ic]);
+      }
+    }
+  }
+
+  return std::make_shared<Linear>();
 }
 
 const std::unordered_map<std::string,
@@ -555,6 +952,52 @@ std::shared_ptr<Layer> LayerBuilder::build(
     throw std::runtime_error("\"" + layer_class_name +
                              "\" is not registered as layer class");
   }
+}
+
+std::shared_ptr<Layer> LayerBuilder::build(
+    picojson::object& layer,
+    picojson::object& next_layer,
+    picojson::array::const_iterator& layers_iterator,
+    const std::string& model_params_path,
+    const std::shared_ptr<helper::he::SealTool> seal_tool) {
+  const std::string layer_class_name = layer["class_name"].get<std::string>();
+  const std::string next_layer_class_name =
+      next_layer["class_name"].get<std::string>();
+
+  if (layer_class_name == CONV_2D_CLASS_NAME &&
+      next_layer_class_name == BATCH_NORM_CLASS_NAME) {
+    picojson::object conv_layer_info = layer["info"].get<picojson::object>();
+    picojson::object bn_layer_info = next_layer["info"].get<picojson::object>();
+    const std::string conv_layer_name =
+        conv_layer_info["name"].get<std::string>();
+    const std::string bn_layer_name = bn_layer_info["name"].get<std::string>();
+    const std::string fused_layer_name =
+        conv_layer_name + "-fused-with-" + bn_layer_name;
+    layers_iterator++;
+    std::cout << "  Building " << fused_layer_name << "..." << std::endl;
+
+    return build_conv_2d_fused_batch_norm(conv_layer_info, bn_layer_info,
+                                          fused_layer_name, model_params_path,
+                                          seal_tool);
+  }
+  if (layer_class_name == LINEAR_CLASS_NAME &&
+      next_layer_class_name == BATCH_NORM_CLASS_NAME) {
+    picojson::object linear_layer_info = layer["info"].get<picojson::object>();
+    picojson::object bn_layer_info = next_layer["info"].get<picojson::object>();
+    const std::string linear_layer_name =
+        linear_layer_info["name"].get<std::string>();
+    const std::string bn_layer_name = bn_layer_info["name"].get<std::string>();
+    const std::string fused_layer_name =
+        linear_layer_name + "-fused-with-" + bn_layer_name;
+    layers_iterator++;
+    std::cout << "  Building " << fused_layer_name << "..." << std::endl;
+
+    return build_linear_fused_batch_norm(linear_layer_info, bn_layer_info,
+                                         fused_layer_name, model_params_path,
+                                         seal_tool);
+  }
+
+  return LayerBuilder::build(layer, model_params_path, seal_tool);
 }
 
 }  // namespace cnn::encrypted

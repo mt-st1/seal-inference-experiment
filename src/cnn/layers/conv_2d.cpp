@@ -98,27 +98,41 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   const size_t filter_count = filters_pts_.size();
   const size_t input_channel_size = x_cts.size();
   const size_t filter_hw_size = filters_pts_.at(0).at(0).size();
-  std::vector<seal::Ciphertext> mid_cts(input_channel_size * filter_hw_size);
+  // std::vector<seal::Ciphertext> mid_cts(input_channel_size * filter_hw_size);
+  types::Ciphertext2d mid_cts(
+      filter_count,
+      std::vector<seal::Ciphertext>(input_channel_size * filter_hw_size));
   y_cts.resize(filter_count);
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+  size_t mid_cts_idx;
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) private(mid_cts_idx)
+#endif
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
       for (size_t i = 0; i < filter_hw_size; ++i) {
-        size_t mid_cts_idx = ci * filter_hw_size + i;
+        mid_cts_idx = ci * filter_hw_size + i;
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
                                               seal_tool_->galois_keys(),
-                                              mid_cts[mid_cts_idx]);
-        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[mid_cts_idx],
+                                              mid_cts[fi][mid_cts_idx]);
+        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[fi][mid_cts_idx],
                                                        filters_pts_[fi][ci][i]);
-        seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[mid_cts_idx]);
+        seal_tool_->evaluator().rescale_to_next_inplace(
+            mid_cts[fi][mid_cts_idx]);
       }
     }
-    seal_tool_->evaluator().add_many(mid_cts, y_cts[fi]);
-    y_cts[fi].scale() = seal_tool_->scale();
-    seal_tool_->evaluator().mod_switch_to_inplace(biases_pts_[fi],
-                                                  y_cts[fi].parms_id());
-    seal_tool_->evaluator().add_plain_inplace(y_cts[fi], biases_pts_[fi]);
+  }
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+  for (size_t i = 0; i < filter_count; ++i) {
+    seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+    y_cts[i].scale() = seal_tool_->scale();
+    // seal_tool_->evaluator().mod_switch_to_inplace(biases_pts_[i],
+    //                                               y_cts[i].parms_id());
+    seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
   }
 }
 

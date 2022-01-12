@@ -26,6 +26,19 @@ BatchNorm::~BatchNorm() {}
 void BatchNorm::forward(std::vector<seal::Ciphertext>& x_cts,
                         std::vector<seal::Ciphertext>& y_cts) {
   const size_t input_channel_size = x_cts.size();
+  y_cts.resize(input_channel_size);
+
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+  for (size_t i = 0; i < input_channel_size; ++i) {
+    y_cts[i] = x_cts[i];
+    seal_tool_->evaluator().multiply_plain_inplace(y_cts[i], weights_pts_[i]);
+    seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
+    y_cts[i].scale() = seal_tool_->scale();
+    seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
+  }
 }
 
 void BatchNorm::forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) {}

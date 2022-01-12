@@ -26,6 +26,7 @@ class Activation : public Layer {
 public:
   Activation(const std::string layer_name,
              const EActivationType activation_type,
+             std::vector<seal::Plaintext>& plain_poly_coeffs,
              const std::shared_ptr<helper::he::SealTool> seal_tool);
   Activation();
   ~Activation();
@@ -37,6 +38,13 @@ public:
 
 private:
   EActivationType activation_type_;
+  std::vector<seal::Plaintext> plain_poly_coeffs_;
+  void activate(seal::Ciphertext& x) const;
+  void square(seal::Ciphertext& x) const;
+  void deg2_poly_act(seal::Ciphertext& x) const;
+  void deg2_opt_poly_act(seal::Ciphertext& x) const;
+  void deg4_poly_act(seal::Ciphertext& x) const;
+  void deg4_opt_poly_act(seal::Ciphertext& x) const;
 };
 
 }  // namespace cnn::encrypted

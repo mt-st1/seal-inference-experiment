@@ -30,30 +30,52 @@ AvgPool2d::~AvgPool2d() {}
 void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
                         std::vector<seal::Ciphertext>& y_cts) {
   const std::size_t input_channel_size = x_cts.size();
-  std::vector<seal::Ciphertext> mid_cts(pool_hw_size_);
+  // std::vector<seal::Ciphertext> mid_cts(pool_hw_size_);
+  types::Ciphertext2d mid_cts(input_channel_size,
+                              std::vector<seal::Ciphertext>(pool_hw_size_));
   y_cts.resize(input_channel_size);
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   if (OPT_OPTION.enable_fold_pool_coeff) {
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2)
+#endif
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
-        seal_tool_->evaluator().rotate_vector(
-            x_cts[ci], rotation_map_[i], seal_tool_->galois_keys(), mid_cts[i]);
+        seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
+                                              seal_tool_->galois_keys(),
+                                              mid_cts[ci][i]);
       }
-      seal_tool_->evaluator().add_many(mid_cts, y_cts[ci]);
-      y_cts[ci].scale() = seal_tool_->scale();
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for (std::size_t i = 0; i < input_channel_size; ++i) {
+      seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+      y_cts[i].scale() = seal_tool_->scale();
     }
   } else {
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
-        seal_tool_->evaluator().rotate_vector(
-            x_cts[ci], rotation_map_[i], seal_tool_->galois_keys(), mid_cts[i]);
-        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[i],
+        seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
+                                              seal_tool_->galois_keys(),
+                                              mid_cts[ci][i]);
+        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
                                                        plain_mul_factor_);
-        seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[i]);
+        seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);
       }
-      seal_tool_->evaluator().add_many(mid_cts, y_cts[ci]);
-      y_cts[ci].scale() = seal_tool_->scale();
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for (std::size_t i = 0; i < input_channel_size; ++i) {
+      seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+      y_cts[i].scale() = seal_tool_->scale();
     }
   }
 }
