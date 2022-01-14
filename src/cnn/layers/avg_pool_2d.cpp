@@ -43,8 +43,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
-                                              seal_tool_->galois_keys(),
-                                              mid_cts[ci][i]);
+                                              GALOIS_KEYS, mid_cts[ci][i]);
       }
     }
 
@@ -62,8 +61,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
-                                              seal_tool_->galois_keys(),
-                                              mid_cts[ci][i]);
+                                              GALOIS_KEYS, mid_cts[ci][i]);
         seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
                                                        plain_mul_factor_);
         seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);

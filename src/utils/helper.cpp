@@ -7,13 +7,13 @@ namespace helper::he {
 SealTool::SealTool(seal::Evaluator& evaluator,
                    seal::CKKSEncoder& encoder,
                    seal::RelinKeys& relin_keys,
-                   seal::GaloisKeys& galois_keys,
+                   //  seal::GaloisKeys& galois_keys,
                    const std::size_t slot_count,
                    const double scale)
     : evaluator_(evaluator),
       encoder_(encoder),
       relin_keys_(relin_keys),
-      galois_keys_(galois_keys),
+      // galois_keys_(galois_keys),
       slot_count_(slot_count),
       scale_(scale) {}
 
@@ -62,6 +62,20 @@ void print_parameters(const std::shared_ptr<seal::SEALContext>& context) {
   }
 
   std::cout << "\\" << std::endl;
+}
+
+void total_sum(seal::Ciphertext& target_ct,
+               seal::Ciphertext& dest_ct,
+               std::size_t slot_count,
+               seal::Evaluator& evaluator,
+               seal::GaloisKeys& galois_keys) {
+  std::size_t rotate_count = std::ceil(std::log2(slot_count));
+  dest_ct = target_ct;
+  for (std::size_t i = 0; i < rotate_count; ++i) {
+    evaluator.rotate_vector(dest_ct, static_cast<int>(std::pow(2, i)),
+                            galois_keys, target_ct);
+    evaluator.add_inplace(dest_ct, target_ct);
+  }
 }
 
 void encrypt_image(const std::vector<float>& origin_image,

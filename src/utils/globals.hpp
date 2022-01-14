@@ -1,5 +1,7 @@
 #pragma once
 
+#include <seal/seal.h>
+#include <set>
 #include <utils/opt_option.hpp>
 #include <vector>
 
@@ -36,7 +38,14 @@ extern EActivationType ACTIVATION_TYPE;
 // = ROUND_THRESHOLD * (target_encode_value/fabs(target_encode_value))
 constexpr double ROUND_THRESHOLD = 1e-7;
 
-extern std::size_t INPUT_C, INPUT_H, INPUT_W, OUTPUT_C, OUTPUT_H, OUTPUT_W;
+extern seal::GaloisKeys GALOIS_KEYS;
+extern std::set<int> USE_ROTATION_STEPS;
+
+extern std::size_t INPUT_C, INPUT_H, INPUT_W, OUTPUT_C, OUTPUT_H, OUTPUT_W,
+    INPUT_UNITS, OUTPUT_UNITS;
 extern std::vector<std::vector<int>> INPUT_HW_SLOT_IDX;
 extern std::vector<std::vector<int>> OUTPUT_HW_SLOT_IDX;
 extern std::vector<std::vector<int>> KERNEL_HW_ROTATION_STEP;
+extern std::vector<int> FLATTEN_ROTATION_STEP;
+extern std::vector<int> INPUT_UNITS_SLOT_IDX;
+extern std::vector<int> OUTPUT_UNITS_SLOT_IDX;

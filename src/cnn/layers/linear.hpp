@@ -22,12 +22,19 @@ namespace cnn::encrypted {
 
 class Linear : public Layer {
 public:
-  Linear();
+  Linear(const std::string layer_name,
+         const std::vector<seal::Plaintext>& weights_pts,
+         const std::vector<seal::Plaintext>& biases_pts,
+         const std::shared_ptr<helper::he::SealTool> seal_tool);
   ~Linear();
 
   void forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) override;
+  void forward(seal::Ciphertext& x_ct,
+               std::vector<seal::Ciphertext>& y_cts) override;
 
 private:
+  std::vector<seal::Plaintext> weights_pts_;  // form of [OC]
+  std::vector<seal::Plaintext> biases_pts_;   // form of [OC]
 };
 
 }  // namespace cnn::encrypted

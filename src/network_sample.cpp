@@ -252,28 +252,32 @@ int main(int argc, char* argv[]) {
     }
 
     seal::Evaluator evaluator(*context);
-    shared_ptr<helper::he::SealTool> seal_tool =
-        std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
-                                               *galois_keys, slot_count, scale);
+    // shared_ptr<helper::he::SealTool> seal_tool =
+    //     std::make_shared<helper::he::SealTool>(evaluator, encoder,
+    //     *relin_keys,
+    //                                            *galois_keys, slot_count,
+    //                                            scale);
 
-    cnn::encrypted::Network enc_network;
-    enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(
-        CONV_2D_CLASS_NAME, filters_pts, biases_pts, rotation_map, seal_tool));
-    enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(
-        FLATTEN_CLASS_NAME, seal_tool));
-    for (size_t i = 0; i < INPUT_N; ++i) {
-      seal::Ciphertext enc_pred_result = enc_network.predict(inputs_cts[i]);
+    // cnn::encrypted::Network enc_network;
+    // enc_network.add_layer(std::make_shared<cnn::encrypted::Conv2d>(
+    //     CONV_2D_CLASS_NAME, filters_pts, biases_pts, rotation_map,
+    //     seal_tool));
+    // enc_network.add_layer(std::make_shared<cnn::encrypted::Flatten>(
+    //     FLATTEN_CLASS_NAME, seal_tool));
+    // for (size_t i = 0; i < INPUT_N; ++i) {
+    //   seal::Ciphertext enc_pred_result = enc_network.predict(inputs_cts[i]);
 
-      seal::Plaintext result_pt;
-      vector<double> decrypted_result;
-      decryptor.decrypt(enc_pred_result, result_pt);
-      encoder.decode(result_pt, decrypted_result);
+    //   seal::Plaintext result_pt;
+    //   vector<double> decrypted_result;
+    //   decryptor.decrypt(enc_pred_result, result_pt);
+    //   encoder.decode(result_pt, decrypted_result);
 
-      for (size_t hw = 0; hw < TMP_INPUT_H * TMP_INPUT_W; ++hw) {
-        std::cout << "decrypted_result[" << hw << "]: " << decrypted_result[hw]
-                  << std::endl;
-      }
-    }
+    //   for (size_t hw = 0; hw < TMP_INPUT_H * TMP_INPUT_W; ++hw) {
+    //     std::cout << "decrypted_result[" << hw << "]: " <<
+    //     decrypted_result[hw]
+    //               << std::endl;
+    //   }
+    // }
   }
 
   return 0;

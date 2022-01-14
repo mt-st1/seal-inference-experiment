@@ -151,6 +151,8 @@ int main(int argc, char* argv[]) {
       "(single: channel-wise packing, batch: batch-axis packing)",
       false, constants::mode::SINGLE,
       cmdline::oneof<string>(constants::mode::SINGLE, constants::mode::BATCH));
+  parser.add<size_t>("images", 0, "How many images to execute inference", false,
+                     0);
   parser.add<size_t>("trials", 'N',
                      "Number of trials to evaluate inference on test dataset",
                      false, 1);
@@ -167,7 +169,8 @@ int main(int argc, char* argv[]) {
   OPT_OPTION = OptOption(enable_fuse_linear_layer, enable_fold_act_coeff,
                          enable_fold_pool_coeff);
   const string inference_mode = parser.get<string>("mode");
-  const size_t inference_trial_count = parser.get<size_t>("trials");
+  size_t inference_image_count = parser.get<size_t>("images");
+  size_t inference_trial_count = parser.get<size_t>("trials");
 
   const string saved_models_path =
       constants::fname::TRAIN_MODEL_DIR + "/" + dataset_name + "/saved_models/";
@@ -237,9 +240,9 @@ int main(int argc, char* argv[]) {
   public_key->load(*context, *secrets_ifs(constants::fname::PUBLIC_KEY_SUFFIX));
   shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
   relin_keys->load(*context, *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
-  shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
-  galois_keys->load(*context,
-                    *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  // shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
+  // galois_keys->load(*context,
+  //                   *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
 
   seal::CKKSEncoder encoder(*context);
   seal::Encryptor encryptor(*context, *public_key);
@@ -253,9 +256,13 @@ int main(int argc, char* argv[]) {
   cout << endl;
 
   seal::Evaluator evaluator(*context);
+  // shared_ptr<helper::he::SealTool> seal_tool =
+  //     std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
+  //                                            *galois_keys, slot_count,
+  //                                            scale);
   shared_ptr<helper::he::SealTool> seal_tool =
       std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
-                                             *galois_keys, slot_count, scale);
+                                             slot_count, scale);
 
   /* Load test dataset for inference */
   cout << "Loading test images & labels..." << endl;
@@ -284,6 +291,12 @@ int main(int argc, char* argv[]) {
           INPUT_HW_SLOT_IDX[i][j] = counter++;
         }
       }
+      // register rotation steps for total sum (log2(slot_count))
+      size_t total_sum_rotate_count =
+          std::ceil(std::log2(seal_tool->slot_count()));
+      for (std::size_t i = 0; i < total_sum_rotate_count; ++i) {
+        USE_ROTATION_STEPS.insert(static_cast<int>(std::pow(2, i)));
+      }
     }
     using namespace cnn::encrypted;
     /* Build network */
@@ -308,15 +321,30 @@ int main(int argc, char* argv[]) {
     cout << "Finish building! (" << build_network_sec.count() << " sec)\n"
          << endl;
 
+    /* Create galois keys */
+    seal::SEALContext context(params);
+    seal::KeyGenerator keygen(context);
+    cout << "Creating " << USE_ROTATION_STEPS.size() << " galois keys..."
+         << endl;
+    vector<int> rotation_steps(USE_ROTATION_STEPS.begin(),
+                               USE_ROTATION_STEPS.end());
+    keygen.create_galois_keys(rotation_steps, GALOIS_KEYS);
+    cout << "Finish creating!\n" << endl;
+
     /* Execute inference on test data */
-    seal::Ciphertext enc_result;
+    inference_image_count =
+        inference_image_count == 0 ? input_n : inference_image_count;
+    vector<seal::Ciphertext> enc_results(label_size);
     seal::Plaintext plain_result;
-    vector<double> result;
+    vector<double> tmp_results(slot_count);
+    vector<vector<double>> results(inference_image_count,
+                                   vector<double>(label_size));
+    size_t correct_prediction_count = 0;
     duration<double> sum_encryption_sec = duration<double>::zero(),
                      sum_inference_sec = duration<double>::zero(),
                      sum_decryption_sec = duration<double>::zero();
-    for (size_t i = 0; i < input_n; ++i) {
-      cout << "\t<Image " << i + 1 << "/" << input_n << ">\n"
+    for (size_t i = 0; i < inference_image_count; ++i) {
+      cout << "\t<Image " << i + 1 << "/" << inference_image_count << ">\n"
            << "\tEncrypting image per channel..." << endl;
       /* Encrypt image */
       vector<seal::Ciphertext> enc_channel_wise_packed_image(input_c);
@@ -329,14 +357,13 @@ int main(int argc, char* argv[]) {
           encrypt_image_end_time - encrypt_image_begin_time;
       sum_encryption_sec += encrypt_image_sec;
       cout << "\tFinish encrypting! (" << encrypt_image_sec.count() << " sec)\n"
-           << "\t  encrypted image has" << enc_channel_wise_packed_image.size()
+           << "\t  encrypted image has " << enc_channel_wise_packed_image.size()
            << " channels" << endl;
 
       /* Execute inference */
       cout << "\tExecuting inference..." << endl;
       auto inference_begin_time = high_resolution_clock::now();
-      seal::Ciphertext enc_result =
-          network.predict(enc_channel_wise_packed_image);
+      enc_results = network.predict(enc_channel_wise_packed_image);
       auto inference_end_time = high_resolution_clock::now();
 
       duration<double> inference_sec =
@@ -348,7 +375,58 @@ int main(int argc, char* argv[]) {
 
       /* Decrypt inference results */
       cout << "\tDecrypting inference result..." << endl;
+      auto decrypt_result_begin_time = high_resolution_clock::now();
+      for (size_t label = 0; label < label_size; label++) {
+        decryptor.decrypt(enc_results[label], plain_result);
+        encoder.decode(plain_result, tmp_results);
+        results[i][label] = tmp_results[0];
+      }
+      auto decrypt_result_end_time = high_resolution_clock::now();
+
+      duration<double> decrypt_result_sec =
+          decrypt_result_end_time - decrypt_result_begin_time;
+      sum_decryption_sec += decrypt_result_sec;
+      cout << "\tFinish decrypting! (" << decrypt_result_sec.count() << " sec)"
+           << endl;
+
+      vector<double>::iterator begin_iter = results[i].begin();
+      vector<double>::iterator max_iter =
+          std::max_element(begin_iter, results[i].end());
+      size_t predicted_label = distance(begin_iter, max_iter);
+      size_t correct_label = static_cast<size_t>(test_labels[i]);
+      cout << "\tPredicted: " << predicted_label
+           << ", Correct: " << correct_label << "\n"
+           << endl;
+      if (predicted_label == correct_label) {
+        correct_prediction_count++;
+      }
     }
+
+    /* Calculate accuracy */
+    cout << "Calculating accuracy..." << endl;
+    const double accuracy =
+        static_cast<double>(correct_prediction_count) / inference_image_count;
+    cout << "Finish calculating!\n" << endl;
+    cout << "Accuracy: " << accuracy << " (" << correct_prediction_count << "/"
+         << inference_image_count << ")\n"
+         << endl;
+
+    /* Output average execution time */
+    duration<double> average_encryption_sec =
+        sum_encryption_sec / inference_image_count;
+    duration<double> average_prediction_sec =
+        sum_inference_sec / inference_image_count;
+    duration<double> average_decryption_sec =
+        sum_decryption_sec / inference_image_count;
+    cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+         << "Average of " << inference_image_count
+         << " encryption: " << average_encryption_sec.count() << " sec\n"
+         << "Average of " << inference_image_count
+         << " prediction: " << average_prediction_sec.count() << " sec\n"
+         << "Average of " << inference_image_count
+         << " decryption: " << average_decryption_sec.count() << " sec\n"
+         << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+         << endl;
   }
 
   /* Batch-axis packed ciphertext inference */
@@ -377,16 +455,19 @@ int main(int argc, char* argv[]) {
          << endl;
 
     /* Execute inference on test data */
-    size_t remain_image_count = input_n;
+    inference_image_count =
+        inference_image_count == 0 ? input_n : inference_image_count;
+    size_t remain_image_count = inference_image_count;
     vector<seal::Ciphertext> enc_results(label_size);
     vector<seal::Plaintext> plain_results(label_size);
-    vector<vector<double>> results(input_n, vector<double>(label_size));
+    vector<vector<double>> results(inference_image_count,
+                                   vector<double>(label_size));
     vector<double> tmp_results(slot_count);
     duration<double> sum_encryption_trials_sec, sum_inference_trials_sec,
         sum_decryption_trials_sec;
 
     const size_t step_count =
-        std::ceil(static_cast<double>(input_n) / slot_count);
+        std::ceil(static_cast<double>(inference_image_count) / slot_count);
     cout << "# of inference trials: " << inference_trial_count << endl;
     cout << "# of steps: " << step_count << endl << endl;
     for (size_t step = 0, image_count_in_step; step < step_count; ++step) {
@@ -487,7 +568,7 @@ int main(int argc, char* argv[]) {
     size_t predicted_label, correct_prediction_count = 0;
 
     cout << "Calculating accuracy..." << endl;
-    for (size_t image_idx = 0; image_idx < input_n; ++image_idx) {
+    for (size_t image_idx = 0; image_idx < inference_image_count; ++image_idx) {
       vector<double> predict_outputs = results[image_idx];
       begin_iter = predict_outputs.begin();
       max_iter = std::max_element(begin_iter, predict_outputs.end());
@@ -499,9 +580,11 @@ int main(int argc, char* argv[]) {
     }
 
     const double accuracy =
-        static_cast<double>(correct_prediction_count) / input_n;
+        static_cast<double>(correct_prediction_count) / inference_image_count;
     cout << "Finish calculating!\n" << endl;
-    cout << "Accuracy: " << accuracy << "\n" << endl;
+    cout << "Accuracy: " << accuracy << " (" << correct_prediction_count << "/"
+         << inference_image_count << ")\n"
+         << endl;
   }
 
   return 0;

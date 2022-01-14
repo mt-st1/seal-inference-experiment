@@ -107,19 +107,16 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   size_t mid_cts_idx;
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(mid_cts_idx)
+#pragma omp parallel for collapse(3) private(mid_cts_idx)
 #endif
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
       for (size_t i = 0; i < filter_hw_size; ++i) {
         mid_cts_idx = ci * filter_hw_size + i;
-        seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
-                                              seal_tool_->galois_keys(),
-                                              mid_cts[fi][mid_cts_idx]);
+        seal_tool_->evaluator().rotate_vector(
+            x_cts[ci], rotation_map_[i], GALOIS_KEYS, mid_cts[fi][mid_cts_idx]);
         seal_tool_->evaluator().multiply_plain_inplace(mid_cts[fi][mid_cts_idx],
                                                        filters_pts_[fi][ci][i]);
-        seal_tool_->evaluator().rescale_to_next_inplace(
-            mid_cts[fi][mid_cts_idx]);
       }
     }
   }
@@ -129,6 +126,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
 #endif
   for (size_t i = 0; i < filter_count; ++i) {
     seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+    seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
     y_cts[i].scale() = seal_tool_->scale();
     // seal_tool_->evaluator().mod_switch_to_inplace(biases_pts_[i],
     //                                               y_cts[i].parms_id());

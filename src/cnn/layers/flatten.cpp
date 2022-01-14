@@ -30,15 +30,20 @@ void Flatten::forward(types::float4d& x, types::float2d& y) const {
 namespace cnn::encrypted {
 
 Flatten::Flatten(const std::string layer_name,
+                 const std::vector<int>& rotation_map,
                  const std::shared_ptr<helper::he::SealTool> seal_tool)
-    : Layer(ELayerType::FLATTEN, layer_name, seal_tool) {}
+    : Layer(ELayerType::FLATTEN, layer_name, seal_tool),
+      rotation_map_(rotation_map) {}
 Flatten::Flatten() {}
 Flatten::~Flatten() {}
 
 void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,
                       seal::Ciphertext& y_ct) const {
-  // NOTE: This is temporary implementation
-  y_ct = std::move(x_cts[0]);
+  for (std::size_t i = 0; i < x_cts.size(); ++i) {
+    seal_tool_->evaluator().rotate_vector_inplace(x_cts[i], rotation_map_[i],
+                                                  GALOIS_KEYS);
+  }
+  seal_tool_->evaluator().add_many(x_cts, y_ct);
 }
 
 }  // namespace cnn::encrypted

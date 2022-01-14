@@ -11,10 +11,38 @@ void Linear::forward(types::float2d& x) const {}
 
 namespace cnn::encrypted {
 
-Linear::Linear() {}
+Linear::Linear(const std::string layer_name,
+               const std::vector<seal::Plaintext>& weights_pts,
+               const std::vector<seal::Plaintext>& biases_pts,
+               const std::shared_ptr<helper::he::SealTool> seal_tool)
+    : Layer(ELayerType::LINEAR, layer_name, seal_tool),
+      weights_pts_(weights_pts),
+      biases_pts_(biases_pts) {
+  CONSUMED_LEVEL++;
+}
 Linear::~Linear() {}
 
 void Linear::forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) {}
+
+void Linear::forward(seal::Ciphertext& x_ct,
+                     std::vector<seal::Ciphertext>& y_cts) {
+  const std::size_t output_c = weights_pts_.size();
+  y_cts.resize(output_c);
+
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
+  seal::Ciphertext wx_ct;
+#ifdef _OPENMP
+#pragma omp parallel for private(wx_ct)
+#endif
+  for (std::size_t i = 0; i < output_c; ++i) {
+    seal_tool_->evaluator().multiply_plain(x_ct, weights_pts_[i], wx_ct);
+    seal_tool_->evaluator().rescale_to_next_inplace(wx_ct);
+    helper::he::total_sum(wx_ct, y_cts[i], seal_tool_->slot_count(),
+                          seal_tool_->evaluator(), GALOIS_KEYS);
+    y_cts[i].scale() = seal_tool_->scale();
+    seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
+  }
+}
 
 }  // namespace cnn::encrypted
 

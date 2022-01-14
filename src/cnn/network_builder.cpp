@@ -33,13 +33,31 @@ Network NetworkBuilder::build(
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
   Network network;
-
   picojson::array layers = load_layers(model_structure_path);
-  for (picojson::array::const_iterator it = layers.cbegin(),
-                                       layers_end = layers.cend();
-       it != layers_end; ++it) {
-    picojson::object layer = (*it).get<picojson::object>();
-    network.add_layer(LayerBuilder::build(layer, model_params_path, seal_tool));
+
+  if (OPT_OPTION.enable_fuse_linear_layers) {
+    for (picojson::array::const_iterator it = layers.cbegin(),
+                                         layers_end = layers.cend();
+         it != layers_end; ++it) {
+      picojson::object layer = (*it).get<picojson::object>();
+
+      if (it + 1 != layers_end) {
+        picojson::object next_layer = (*(it + 1)).get<picojson::object>();
+        network.add_layer(LayerBuilder::build(layer, next_layer, it,
+                                              model_params_path, seal_tool));
+      } else {
+        network.add_layer(
+            LayerBuilder::build(layer, model_params_path, seal_tool));
+      }
+    }
+  } else {
+    for (picojson::array::const_iterator it = layers.cbegin(),
+                                         layers_end = layers.cend();
+         it != layers_end; ++it) {
+      picojson::object layer = (*it).get<picojson::object>();
+      network.add_layer(
+          LayerBuilder::build(layer, model_params_path, seal_tool));
+    }
   }
 
   return network;

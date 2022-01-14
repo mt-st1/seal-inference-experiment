@@ -12,7 +12,7 @@ public:
   SealTool(seal::Evaluator& evaluator,
            seal::CKKSEncoder& encoder,
            seal::RelinKeys& relin_keys,
-           seal::GaloisKeys& galois_keys,
+           //  seal::GaloisKeys& galois_keys,
            const std::size_t slot_count,
            const double scale);
   ~SealTool() = default;
@@ -20,7 +20,7 @@ public:
   seal::Evaluator& evaluator() const { return evaluator_; };
   seal::CKKSEncoder& encoder() const { return encoder_; };
   seal::RelinKeys& relin_keys() const { return relin_keys_; };
-  seal::GaloisKeys& galois_keys() const { return galois_keys_; };
+  // seal::GaloisKeys& galois_keys() const { return galois_keys_; };
   const size_t slot_count() const { return slot_count_; };
   const double scale() const { return scale_; };
 
@@ -28,7 +28,7 @@ private:
   seal::Evaluator& evaluator_;
   seal::CKKSEncoder& encoder_;
   seal::RelinKeys& relin_keys_;
-  seal::GaloisKeys& galois_keys_;
+  // seal::GaloisKeys& galois_keys_;
   std::size_t slot_count_;
   double scale_;
 };
@@ -37,6 +37,21 @@ private:
 Helper function: Prints the parameters in a SEALContext.
 */
 void print_parameters(const std::shared_ptr<seal::SEALContext>& context);
+
+/**
+ * @brief Calculate total sum within slots of a ciphertext
+ *
+ * @param target_ct
+ * @param dest_ct
+ * @param slot_count
+ * @param evaluator
+ * @param galois_keys
+ */
+void total_sum(seal::Ciphertext& target_ct,
+               seal::Ciphertext& dest_ct,
+               std::size_t slot_count,
+               seal::Evaluator& evaluator,
+               seal::GaloisKeys& galois_keys);
 
 void encrypt_image(const std::vector<float>& origin_image,
                    std::vector<seal::Ciphertext>& target_cts,

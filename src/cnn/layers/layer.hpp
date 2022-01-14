@@ -72,6 +72,13 @@ public:
    */
   virtual void forward(seal::Ciphertext& x_ct, seal::Ciphertext& y_ct) = 0;
   /**
+   * @param x_ct input ciphertext
+   * @param[out] y_ctx output ciphertexts (size: number of output channels)
+   * @note for Linear
+   */
+  virtual void forward(seal::Ciphertext& x_ct,
+                       std::vector<seal::Ciphertext>& y_cts) = 0;
+  /**
    * @param x_cts input ciphertexts (size: number of input channels)
    * @param[out] y_ct flattened output ciphertext
    */
@@ -97,6 +104,11 @@ public:
 
   virtual void forward(seal::Ciphertext& x_ct,
                        seal::Ciphertext& y_ct) override {
+    std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
+  }
+
+  virtual void forward(seal::Ciphertext& x_ct,
+                       std::vector<seal::Ciphertext>& y_cts) override {
     std::cerr << __PRETTY_FUNCTION__ << " is not implemented." << std::endl;
   }
 

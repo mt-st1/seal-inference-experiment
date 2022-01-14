@@ -76,7 +76,9 @@ Network::~Network() {}
  * @param x_cts input ciphertexts in the form of [C]
  * @return prediction output ciphertext
  */
-seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
+// seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
+std::vector<seal::Ciphertext> Network::predict(
+    std::vector<seal::Ciphertext>& x_cts) {
   std::vector<seal::Ciphertext> y_cts;
   seal::Ciphertext x_ct, y_ct;
   bool is_flattened = false;
@@ -94,11 +96,11 @@ seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
           x_cts.clear();
           x_cts.reserve(y_cts.size());
           for (auto& y_ct : y_cts) {
-            x_cts.push_back(std::move(y_ct));
+            x_cts.push_back(y_ct);
           }
         } else {
-          layer->forward(x_ct, y_ct);
-          x_ct = std::move(y_ct);
+          layer->forward(x_ct, y_cts);
+          // x_ct = std::move(y_ct);
         }
         break;
       case FLATTEN:
@@ -144,7 +146,8 @@ seal::Ciphertext Network::predict(std::vector<seal::Ciphertext>& x_cts) {
   //   layer_it = layers_.erase(layer_it);
   // }
 
-  return x_ct;
+  // return x_ct;
+  return y_cts;
 }
 
 }  // namespace cnn::encrypted

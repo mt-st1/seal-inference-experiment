@@ -21,12 +21,16 @@ namespace cnn::encrypted {
 class Flatten : public Layer {
 public:
   Flatten(const std::string layer_name,
+          const std::vector<int>& rotation_map,
           const std::shared_ptr<helper::he::SealTool> seal_tool);
   Flatten();
   ~Flatten();
 
   void forward(std::vector<seal::Ciphertext>& x_cts,
                seal::Ciphertext& y_ct) const override;
+
+private:
+  std::vector<int> rotation_map_;
 };
 
 }  // namespace cnn::encrypted

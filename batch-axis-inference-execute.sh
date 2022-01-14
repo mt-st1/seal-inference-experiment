@@ -3,7 +3,7 @@ set -eu
 
 commands=(
   # MNIST: Square [Level: 5]
-  "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 ./bin/main -P N16384_L5_50-30 -D mnist -M 3layer_cnn-square-BN --model-params 3layer_cnn-square-BN-99.35_200epoch-1223_1032-params.h5 -A square --fuse-layer --mode batch -N 2)"
+  "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 -m 3 ./bin/main -P N16384_L5_50-30 -D mnist -M 3layer_cnn-square-BN --model-params 3layer_cnn-square-BN-99.35_200epoch-1223_1032-params.h5 -A square --fuse-layer --mode batch -N 2)"
   # MNIST: ReLU approx. (rg5_deg2, rg7_deg2, rg5_deg5, rg7_deg4) [Level: 5 or 7]
   "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 ./bin/main -P N16384_L5_50-30 -D mnist -M 3layer_cnn-relu_rg5_deg2-BN --model-params 3layer_cnn-relu_rg5_deg2-BN-99.36_200epoch-1223_1247-params.h5 -A relu_rg5_deg2 --fuse-layer --opt-act --mode batch -N 2)"
   "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 ./bin/main -P N16384_L5_50-30 -D mnist -M 3layer_cnn-relu_rg7_deg2-BN --model-params 3layer_cnn-relu_rg7_deg2-BN-99.49_200epoch-1223_1508-params.h5 -A relu_rg7_deg2 --fuse-layer --opt-act --mode batch -N 2)"

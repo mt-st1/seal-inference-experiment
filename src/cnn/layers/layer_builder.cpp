@@ -197,27 +197,27 @@ std::shared_ptr<Layer> build_conv_2d(
 
     OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
     for (int i = 0; i < OUTPUT_H; ++i) {
-      OUTPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      OUTPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
       for (int j = 0; j < OUTPUT_W; ++j) {
         OUTPUT_HW_SLOT_IDX[i][j] =
             INPUT_HW_SLOT_IDX[i * stride_h][j * stride_w];
       }
     }
 
-    int col_idx, row_idx;
+    int col_idx, row_idx, step;
     KERNEL_HW_ROTATION_STEP.resize(filter_h);
     for (int i = 0; i < filter_h; ++i) {
-      KERNEL_HW_ROTATION_STEP.resize(filter_w);
+      KERNEL_HW_ROTATION_STEP[i].resize(filter_w);
       for (int j = 0; j < filter_w; ++j) {
         col_idx = i - padding_h;
         row_idx = j - padding_w;
         if (col_idx < 0) {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+          step = -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
         } else {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+          step = INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
         }
+        KERNEL_HW_ROTATION_STEP[i][j] = step;
+        USE_ROTATION_STEPS.insert(step);
       }
     }
   }
@@ -270,6 +270,9 @@ std::shared_ptr<Layer> build_conv_2d(
 
   int counter;
   std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2) private(weight, counter)
+#endif
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
       counter = 0;
@@ -306,6 +309,9 @@ std::shared_ptr<Layer> build_conv_2d(
   }
 
   std::vector<double> bias_values_in_slot(seal_tool->slot_count(), 0);
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (int i = 0; i < OUTPUT_H; ++i) {
       for (int j = 0; j < OUTPUT_W; ++j) {
@@ -325,7 +331,7 @@ std::shared_ptr<Layer> build_conv_2d(
     INPUT_W = OUTPUT_W;
     INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
     for (int i = 0; i < OUTPUT_H; ++i) {
-      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      INPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
       for (int j = 0; j < OUTPUT_W; ++j) {
         INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
       }
@@ -377,7 +383,7 @@ std::shared_ptr<Layer> build_avg_pool_2d(
       }
     }
 
-    int col_idx, row_idx;
+    int col_idx, row_idx, step;
     KERNEL_HW_ROTATION_STEP.resize(pool_height);
     for (int i = 0; i < pool_height; ++i) {
       KERNEL_HW_ROTATION_STEP[i].resize(pool_width);
@@ -385,12 +391,12 @@ std::shared_ptr<Layer> build_avg_pool_2d(
         col_idx = i - padding_height;
         row_idx = j - padding_width;
         if (col_idx < 0) {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+          step = -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
         } else {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+          step = INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
         }
+        KERNEL_HW_ROTATION_STEP[i][j] = step;
+        USE_ROTATION_STEPS.insert(step);
       }
     }
   }
@@ -435,7 +441,7 @@ std::shared_ptr<Layer> build_avg_pool_2d(
     INPUT_W = OUTPUT_W;
     INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
     for (int i = 0; i < OUTPUT_H; ++i) {
-      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      INPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
       for (int j = 0; j < OUTPUT_W; ++j) {
         INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
       }
@@ -474,21 +480,24 @@ std::shared_ptr<Layer> build_activation(
   }
 
   std::vector<seal::Plaintext> plain_poly_coeffs;
-  for (const double& coeff : POLY_ACT_COEFFS) {
-    std::vector<double> coeff_values_in_slot(seal_tool->slot_count(), 0);
-    for (int i = 0; i < INPUT_H; ++i) {
-      for (int j = 0; j < INPUT_W; ++j) {
-        coeff_values_in_slot[INPUT_HW_SLOT_IDX[i][j]] = coeff;
+  if (ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX ||
+      ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) {
+    for (const double& coeff : POLY_ACT_COEFFS) {
+      std::vector<double> coeff_values_in_slot(seal_tool->slot_count(), 0);
+      for (int i = 0; i < INPUT_H; ++i) {
+        for (int j = 0; j < INPUT_W; ++j) {
+          coeff_values_in_slot[INPUT_HW_SLOT_IDX[i][j]] = coeff;
+        }
       }
+      seal_tool->encoder().encode(coeff_values_in_slot, seal_tool->scale(),
+                                  plain_coeff);
+      for (std::size_t lv = 0; lv < num_mod_switch; ++lv) {
+        seal_tool->evaluator().mod_switch_to_next_inplace(plain_coeff);
+      }
+      plain_poly_coeffs.push_back(plain_coeff);
     }
-    seal_tool->encoder().encode(coeff_values_in_slot, seal_tool->scale(),
-                                plain_coeff);
-    for (std::size_t lv = 0; lv < num_mod_switch; ++lv) {
-      seal_tool->evaluator().mod_switch_to_next_inplace(plain_coeff);
-    }
-    plain_poly_coeffs.push_back(plain_coeff);
+    seal_tool->evaluator().mod_switch_to_next_inplace(plain_poly_coeffs.back());
   }
-  seal_tool->evaluator().mod_switch_to_next_inplace(plain_poly_coeffs.back());
 
   if ((ACTIVATION_TYPE == EActivationType::DEG2_POLY_APPROX ||
        ACTIVATION_TYPE == EActivationType::DEG4_POLY_APPROX) &&
@@ -571,14 +580,120 @@ std::shared_ptr<Layer> build_linear(
     picojson::object& layer_info,
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
-  return std::make_shared<Linear>();
+  /* Read structure info */
+  const std::string layer_name = layer_info["name"].get<std::string>();
+  std::cout << "  Building " << layer_name << "..." << std::endl;
+  const std::size_t unit_size = layer_info["units"].get<double>();
+
+  { OUTPUT_UNITS = unit_size; }
+
+  /* Read params data */
+  H5::H5File params_file(model_params_path, H5F_ACC_RDONLY);
+  H5::Group group = params_file.openGroup("/" + layer_name);
+  H5::DataSet weight_data = group.openDataSet("weight");
+  H5::DataSet bias_data = group.openDataSet("bias");
+
+  H5::DataSpace weight_space = weight_data.getSpace();
+  int weight_rank = weight_space.getSimpleExtentNdims();
+  hsize_t weight_shape[weight_rank];
+  int ndims = weight_space.getSimpleExtentDims(weight_shape);
+
+  const std::size_t out_channel = weight_shape[0], in_channel = weight_shape[1];
+  std::vector<float> flattened_weights(out_channel * in_channel);
+  std::vector<float> biases(out_channel);
+
+  weight_data.read(flattened_weights.data(), H5::PredType::NATIVE_FLOAT);
+  bias_data.read(biases.data(), H5::PredType::NATIVE_FLOAT);
+
+  double folding_value = 1, weight;
+  if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF &&
+      OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF * CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+    SHOULD_MUL_POOL_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
+    folding_value = POLY_ACT_HIGHEST_DEG_COEFF;
+    SHOULD_MUL_ACT_COEFF = false;
+  } else if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    folding_value = CURRENT_POOL_MUL_COEFF;
+    SHOULD_MUL_POOL_COEFF = false;
+  }
+
+  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
+  std::vector<seal::Plaintext> plain_weights(out_channel),
+      plain_biases(out_channel);
+
+  int slot_idx, counter;
+#ifdef _OPENMP
+#pragma omp parallel for private(weight, slot_idx, counter)
+#endif
+  for (std::size_t oc = 0; oc < out_channel; ++oc) {
+    counter = 0;
+    for (std::size_t c = 0; c < INPUT_C; ++c) {
+      for (std::size_t h = 0; h < INPUT_H; ++h) {
+        for (std::size_t w = 0; w < INPUT_W; ++w) {
+          slot_idx = INPUT_HW_SLOT_IDX[h][w] + FLATTEN_ROTATION_STEP[c];
+          weight = folding_value * flattened_weights[oc * in_channel + counter];
+          if (fabs(weight) < ROUND_THRESHOLD) {
+            round_value(weight);
+          }
+          weight_values_in_slot[slot_idx] = weight;
+          counter++;
+        }
+      }
+    }
+    seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
+                                plain_weights[oc]);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_weights[oc]);
+    }
+  }
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+  for (std::size_t oc = 0; oc < out_channel; ++oc) {
+    seal_tool->encoder().encode(biases[oc], seal_tool->scale(),
+                                plain_biases[oc]);
+    for (size_t lv = 0; lv < CONSUMED_LEVEL + 1; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_biases[oc]);
+    }
+  }
+
+  return std::make_shared<Linear>(layer_name, plain_weights, plain_biases,
+                                  seal_tool);
 }
 
 std::shared_ptr<Layer> build_flatten(
     picojson::object& layer_info,
     const std::string& model_params_path,
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
-  return std::make_shared<Flatten>();
+  /* Read structure info */
+  const std::string layer_name = layer_info["name"].get<std::string>();
+  std::cout << "  Building " << layer_name << "..." << std::endl;
+
+  const std::size_t step_col =
+                        INPUT_HW_SLOT_IDX[0][1] - INPUT_HW_SLOT_IDX[0][0],  // 4
+      step_row = INPUT_HW_SLOT_IDX[1][0] - INPUT_HW_SLOT_IDX[0][0];  // 112
+  const std::size_t slot_size_per_period = step_col * INPUT_W;       // 16
+  const std::size_t ct_size_gap_full_period = step_row / INPUT_W;    // 28
+  const std::size_t slot_size_gap_full_period =
+      INPUT_HW_SLOT_IDX[INPUT_H - 1][INPUT_W - 1] +
+      ((ct_size_gap_full_period - 1) / step_col) * slot_size_per_period +
+      ((ct_size_gap_full_period - 1) % step_col) + 1;  // 448
+  int step;
+  FLATTEN_ROTATION_STEP.resize(INPUT_C);
+  for (int i = 0; i < INPUT_C; ++i) {
+    step = ((i / step_col) * slot_size_per_period + i % step_col) +
+           ((i / ct_size_gap_full_period) * slot_size_gap_full_period);
+    FLATTEN_ROTATION_STEP[i] = step;
+    USE_ROTATION_STEPS.insert(step);
+  }
+
+  { INPUT_UNITS = INPUT_C * INPUT_H * INPUT_W; }
+
+  return std::make_shared<Flatten>(layer_name, FLATTEN_ROTATION_STEP,
+                                   seal_tool);
 }
 
 std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
@@ -622,27 +737,27 @@ std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
 
     OUTPUT_HW_SLOT_IDX.resize(OUTPUT_H);
     for (int i = 0; i < OUTPUT_H; ++i) {
-      OUTPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      OUTPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
       for (int j = 0; j < OUTPUT_W; ++j) {
         OUTPUT_HW_SLOT_IDX[i][j] =
             INPUT_HW_SLOT_IDX[i * stride_h][j * stride_w];
       }
     }
 
-    int col_idx, row_idx;
+    int col_idx, row_idx, step;
     KERNEL_HW_ROTATION_STEP.resize(filter_h);
     for (int i = 0; i < filter_h; ++i) {
-      KERNEL_HW_ROTATION_STEP.resize(filter_w);
+      KERNEL_HW_ROTATION_STEP[i].resize(filter_w);
       for (int j = 0; j < filter_w; ++j) {
         col_idx = i - padding_h;
         row_idx = j - padding_w;
         if (col_idx < 0) {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
+          step = -INPUT_HW_SLOT_IDX[-col_idx][0] + row_idx;
         } else {
-          KERNEL_HW_ROTATION_STEP[i][j] =
-              INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
+          step = INPUT_HW_SLOT_IDX[col_idx][0] + row_idx;
         }
+        KERNEL_HW_ROTATION_STEP[i][j] = step;
+        USE_ROTATION_STEPS.insert(step);
       }
     }
   }
@@ -748,7 +863,7 @@ std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
   std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
   // plain_weights
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(fused_weight)
+#pragma omp parallel for collapse(2) private(fused_weight, counter)
 #endif
   for (std::size_t fn = 0; fn < filter_n; ++fn) {
     for (std::size_t ic = 0; ic < in_channel; ++ic) {
@@ -789,7 +904,7 @@ std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
     INPUT_W = OUTPUT_W;
     INPUT_HW_SLOT_IDX.resize(OUTPUT_H);
     for (int i = 0; i < OUTPUT_H; ++i) {
-      INPUT_HW_SLOT_IDX.resize(OUTPUT_W);
+      INPUT_HW_SLOT_IDX[i].resize(OUTPUT_W);
       for (int j = 0; j < OUTPUT_W; ++j) {
         INPUT_HW_SLOT_IDX[i][j] = OUTPUT_HW_SLOT_IDX[i][j];
       }
@@ -880,9 +995,9 @@ std::shared_ptr<Layer> build_linear_fused_batch_norm(
 
   std::vector<double> bn_weights(num_features), bn_biases(num_features);
   double fused_weight, fused_bias;
-  types::Plaintext2d plain_weights(out_channel,
-                                   std::vector<seal::Plaintext>(in_channel));
-  std::vector<seal::Plaintext> plain_biases(num_features);
+  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
+  std::vector<seal::Plaintext> plain_weights(out_channel),
+      plain_biases(out_channel);
 
   // plain_biases
 #ifdef _OPENMP
@@ -900,28 +1015,37 @@ std::shared_ptr<Layer> build_linear_fused_batch_norm(
   }
 
   // plain_weights
+  int slot_idx, counter;
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(fused_weight)
+#pragma omp parallel for private(fused_weight, slot_idx, counter)
 #endif
   for (std::size_t oc = 0; oc < out_channel; ++oc) {
-    for (std::size_t ic = 0; ic < in_channel; ++ic) {
-      fused_weight = folding_value *
-                     linear_flattened_weights[oc * in_channel + ic] *
-                     bn_weights[oc];
-      if (fabs(fused_weight) < ROUND_THRESHOLD) {
-        // std::cout << "fused_weight: " << fused_weight << std::endl;
-        round_value(fused_weight);
+    counter = 0;
+    for (std::size_t c = 0; c < INPUT_C; ++c) {
+      for (std::size_t h = 0; h < INPUT_H; ++h) {
+        for (std::size_t w = 0; w < INPUT_W; ++w) {
+          slot_idx = INPUT_HW_SLOT_IDX[h][w] + FLATTEN_ROTATION_STEP[c];
+          fused_weight = folding_value *
+                         linear_flattened_weights[oc * in_channel + counter] *
+                         bn_weights[oc];
+          if (fabs(fused_weight) < ROUND_THRESHOLD) {
+            // std::cout << "fused_weight: " << fused_weight << std::endl;
+            round_value(fused_weight);
+          }
+          weight_values_in_slot[slot_idx] = fused_weight;
+          counter++;
+        }
       }
-      seal_tool->encoder().encode(fused_weight, seal_tool->scale(),
-                                  plain_weights[oc][ic]);
-      for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
-        seal_tool->evaluator().mod_switch_to_next_inplace(
-            plain_weights[oc][ic]);
-      }
+    }
+    seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
+                                plain_weights[oc]);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_weights[oc]);
     }
   }
 
-  return std::make_shared<Linear>();
+  return std::make_shared<Linear>(layer_name, plain_weights, plain_biases,
+                                  seal_tool);
 }
 
 const std::unordered_map<std::string,

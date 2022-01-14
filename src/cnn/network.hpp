@@ -28,7 +28,8 @@ public:
   Network();
   ~Network();
 
-  seal::Ciphertext predict(std::vector<seal::Ciphertext>& x_cts);
+  // seal::Ciphertext predict(std::vector<seal::Ciphertext>& x_cts);
+  std::vector<seal::Ciphertext> predict(std::vector<seal::Ciphertext>& x_cts);
 
   void add_layer(std::shared_ptr<Layer> layer) { layers_.push_back(layer); }
 
