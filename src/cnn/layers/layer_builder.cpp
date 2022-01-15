@@ -166,6 +166,7 @@ std::shared_ptr<Layer> build_conv_2d(
     const std::shared_ptr<helper::he::SealTool> seal_tool) {
   /* Read structure info */
   const std::string layer_name = layer_info["name"].get<std::string>();
+  std::cout << "  Building " << layer_name << "..." << std::endl;
   const std::size_t filter_size = layer_info["filters"].get<double>();
   const picojson::array filter_hw =
       layer_info["kernel_size"].get<picojson::array>();
@@ -1068,8 +1069,6 @@ std::shared_ptr<Layer> LayerBuilder::build(
   if (auto map_iter = BUILD_LAYER_MAP.find(layer_class_name);
       map_iter != BUILD_LAYER_MAP.end()) {
     picojson::object layer_info = layer["info"].get<picojson::object>();
-    const std::string layer_name = layer_info["name"].get<std::string>();
-    std::cout << "  Building " << layer_name << "..." << std::endl;
 
     return map_iter->second(layer_info, model_params_path, seal_tool);
   } else {

@@ -16,5 +16,5 @@ std::vector<std::vector<int>> INPUT_HW_SLOT_IDX;
 std::vector<std::vector<int>> OUTPUT_HW_SLOT_IDX;
 std::vector<std::vector<int>> KERNEL_HW_ROTATION_STEP;
 std::vector<int> FLATTEN_ROTATION_STEP;
-extern std::vector<int> INPUT_UNITS_SLOT_IDX;
-extern std::vector<int> OUTPUT_UNITS_SLOT_IDX;
+std::vector<int> INPUT_UNITS_SLOT_IDX;
+std::vector<int> OUTPUT_UNITS_SLOT_IDX;

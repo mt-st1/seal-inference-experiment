@@ -39,6 +39,7 @@ Flatten::~Flatten() {}
 
 void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,
                       seal::Ciphertext& y_ct) const {
+  std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   for (std::size_t i = 0; i < x_cts.size(); ++i) {
     seal_tool_->evaluator().rotate_vector_inplace(x_cts[i], rotation_map_[i],
                                                   GALOIS_KEYS);
