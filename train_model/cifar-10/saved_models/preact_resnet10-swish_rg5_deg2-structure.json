@@ -1,0 +1,330 @@
+{
+  "class_name": "PreActResNet",
+  "structure": [
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_1",
+        "filters": 64,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_1",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_2",
+        "filters": 64,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_2",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_3",
+        "filters": 64,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_1",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_3",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_4",
+        "filters": 128,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_4",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_5",
+        "filters": 128,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_2",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_6",
+        "filters": 128,
+        "kernel_size": [
+          1,
+          1
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_5",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_7",
+        "filters": 256,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_6",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_8",
+        "filters": 256,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_3",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_9",
+        "filters": 256,
+        "kernel_size": [
+          1,
+          1
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_7",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_10",
+        "filters": 512,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_8",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_11",
+        "filters": 512,
+        "kernel_size": [
+          3,
+          3
+        ],
+        "stride": [
+          1,
+          1
+        ],
+        "padding": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_4",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_12",
+        "filters": 512,
+        "kernel_size": [
+          1,
+          1
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "class_name": "Flatten",
+      "info": {
+        "name": "Flatten_1"
+      }
+    },
+    {
+      "class_name": "Linear",
+      "info": {
+        "name": "Linear_1",
+        "units": 10
+      }
+    }
+  ]
+}

@@ -31,7 +31,7 @@ __pycache__/
 .ipynb_checkpoints
 default-*.ipynb
 
-saved_models/
+# saved_models/
 graphs/
 train_model/mnist/data/
 train_model/cifar-10/data/
