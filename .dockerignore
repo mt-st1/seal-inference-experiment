@@ -7,3 +7,5 @@
 !/datasets/**
 !CMakeLists.txt
 !Dockerfile
+!keygen.sh
+!batch-axis-inference-execute.sh
