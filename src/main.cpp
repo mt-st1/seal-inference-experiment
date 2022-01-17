@@ -261,8 +261,8 @@ int main(int argc, char* argv[]) {
   //                                            *galois_keys, slot_count,
   //                                            scale);
   shared_ptr<helper::he::SealTool> seal_tool =
-      std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
-                                             slot_count, scale);
+      std::make_shared<helper::he::SealTool>(evaluator, encoder, decryptor,
+                                             *relin_keys, slot_count, scale);
 
   /* Load test dataset for inference */
   cout << "Loading test images & labels..." << endl;
@@ -358,7 +358,8 @@ int main(int argc, char* argv[]) {
       sum_encryption_sec += encrypt_image_sec;
       cout << "\tFinish encrypting! (" << encrypt_image_sec.count() << " sec)\n"
            << "\t  encrypted image has " << enc_channel_wise_packed_image.size()
-           << " channels" << endl;
+           << " channels\n"
+           << endl;
 
       /* Execute inference */
       cout << "\tExecuting inference..." << endl;
@@ -379,6 +380,12 @@ int main(int argc, char* argv[]) {
       for (size_t label = 0; label < label_size; label++) {
         decryptor.decrypt(enc_results[label], plain_result);
         encoder.decode(plain_result, tmp_results);
+        {
+          cout << "\tLabel: " << label << endl;
+          for (int s = 0; s < 10; ++s) {
+            cout << "\ttmp_results[" << s << "]: " << tmp_results[s] << endl;
+          }
+        }
         results[i][label] = tmp_results[0];
       }
       auto decrypt_result_end_time = high_resolution_clock::now();
@@ -392,7 +399,7 @@ int main(int argc, char* argv[]) {
       vector<double>::iterator begin_iter = results[i].begin();
       vector<double>::iterator max_iter =
           std::max_element(begin_iter, results[i].end());
-      size_t predicted_label = distance(begin_iter, max_iter);
+      size_t predicted_label = std::distance(begin_iter, max_iter);
       size_t correct_label = static_cast<size_t>(test_labels[i]);
       cout << "\tPredicted: " << predicted_label
            << ", Correct: " << correct_label << "\n"
@@ -509,8 +516,7 @@ int main(int argc, char* argv[]) {
         /* Execute inference */
         cout << "\tExecuting inference..." << endl;
         auto step_inference_begin_time = high_resolution_clock::now();
-        vector<seal::Ciphertext> enc_results =
-            network.predict(enc_packed_images);
+        enc_results = network.predict(enc_packed_images);
         auto step_inference_end_time = high_resolution_clock::now();
 
         duration<double> step_inference_sec =

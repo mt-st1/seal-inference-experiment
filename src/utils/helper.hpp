@@ -11,6 +11,7 @@ class SealTool {
 public:
   SealTool(seal::Evaluator& evaluator,
            seal::CKKSEncoder& encoder,
+           seal::Decryptor& decryptor,
            seal::RelinKeys& relin_keys,
            //  seal::GaloisKeys& galois_keys,
            const std::size_t slot_count,
@@ -19,6 +20,7 @@ public:
 
   seal::Evaluator& evaluator() const { return evaluator_; };
   seal::CKKSEncoder& encoder() const { return encoder_; };
+  seal::Decryptor& decryptor() const { return decryptor_; };
   seal::RelinKeys& relin_keys() const { return relin_keys_; };
   // seal::GaloisKeys& galois_keys() const { return galois_keys_; };
   const size_t slot_count() const { return slot_count_; };
@@ -27,6 +29,7 @@ public:
 private:
   seal::Evaluator& evaluator_;
   seal::CKKSEncoder& encoder_;
+  seal::Decryptor& decryptor_;
   seal::RelinKeys& relin_keys_;
   // seal::GaloisKeys& galois_keys_;
   std::size_t slot_count_;

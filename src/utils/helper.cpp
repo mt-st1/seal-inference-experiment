@@ -6,12 +6,14 @@ namespace helper::he {
 
 SealTool::SealTool(seal::Evaluator& evaluator,
                    seal::CKKSEncoder& encoder,
+                   seal::Decryptor& decryptor,
                    seal::RelinKeys& relin_keys,
                    //  seal::GaloisKeys& galois_keys,
                    const std::size_t slot_count,
                    const double scale)
     : evaluator_(evaluator),
       encoder_(encoder),
+      decryptor_(decryptor),
       relin_keys_(relin_keys),
       // galois_keys_(galois_keys),
       slot_count_(slot_count),
