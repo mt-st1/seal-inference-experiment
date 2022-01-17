@@ -685,8 +685,8 @@ std::shared_ptr<Layer> build_flatten(
   int step;
   FLATTEN_ROTATION_STEP.resize(INPUT_C);
   for (int i = 0; i < INPUT_C; ++i) {
-    step = ((i / step_col) * slot_size_per_period + i % step_col) +
-           ((i / ct_size_gap_full_period) * slot_size_gap_full_period);
+    step = -(((i / step_col) * slot_size_per_period + i % step_col) +
+             ((i / ct_size_gap_full_period) * slot_size_gap_full_period));
     FLATTEN_ROTATION_STEP[i] = step;
     USE_ROTATION_STEPS.insert(step);
   }
