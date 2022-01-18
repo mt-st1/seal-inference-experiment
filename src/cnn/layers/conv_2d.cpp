@@ -111,25 +111,25 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
     std::cout << rotation_map_[i] << ", ";
   }
   std::cout << std::endl;
-  {
-    seal::Plaintext plain_x;
-    std::vector<double> x_values;
-    seal_tool_->decryptor().decrypt(x_cts[0], plain_x);
-    seal_tool_->encoder().decode(plain_x, x_values);
-    std::cout << "x_values:" << std::endl;
-    for (int s = 0; s < 30; ++s) {
-      std::cout << x_values[s] << ", ";
-    }
-    std::cout << std::endl;
-    for (int i = 0; i < filter_hw_size; ++i) {
-      seal_tool_->encoder().decode(filters_pts_[0][0][i], x_values);
-      std::cout << "filter[" << i << "] values:" << std::endl;
-      for (int s = 0; s < 30; ++s) {
-        std::cout << x_values[s] << ", ";
-      }
-      std::cout << std::endl;
-    }
-  }
+  // {
+  //   seal::Plaintext plain_x;
+  //   std::vector<double> x_values;
+  //   seal_tool_->decryptor().decrypt(x_cts[0], plain_x);
+  //   seal_tool_->encoder().decode(plain_x, x_values);
+  //   std::cout << "x_values:" << std::endl;
+  //   for (int s = 0; s < 30; ++s) {
+  //     std::cout << x_values[s] << ", ";
+  //   }
+  //   std::cout << std::endl;
+  //   for (int i = 0; i < filter_hw_size; ++i) {
+  //     seal_tool_->encoder().decode(filters_pts_[0][0][i], x_values);
+  //     std::cout << "filter[" << i << "] values:" << std::endl;
+  //     for (int s = 0; s < 30; ++s) {
+  //       std::cout << x_values[s] << ", ";
+  //     }
+  //     std::cout << std::endl;
+  //   }
+  // }
 #ifdef _OPENMP
 #pragma omp parallel for collapse(3) private(mid_cts_idx)
 #endif
@@ -159,25 +159,25 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
     }
   }
 
-  {
-    seal::Plaintext plain_x;
-    std::vector<double> x_values;
-    for (int i = 0; i < filter_hw_size; ++i) {
-      std::cout << "mid_cts[0][" << i << "]: " << std::endl;
-      seal_tool_->decryptor().decrypt(mid_cts[0][i], plain_x);
-      seal_tool_->encoder().decode(plain_x, x_values);
-      for (int s = 0; s < 30; ++s) {
-        std::cout << x_values[s] << ", ";
-      }
-      std::cout << std::endl;
-    }
-    seal_tool_->encoder().decode(biases_pts_[0], x_values);
-    std::cout << "biases_pts_[0]: " << std::endl;
-    for (int s = 0; s < 30; ++s) {
-      std::cout << x_values[s] << ", ";
-    }
-    std::cout << std::endl;
-  }
+  // {
+  //   seal::Plaintext plain_x;
+  //   std::vector<double> x_values;
+  //   for (int i = 0; i < filter_hw_size; ++i) {
+  //     std::cout << "mid_cts[0][" << i << "]: " << std::endl;
+  //     seal_tool_->decryptor().decrypt(mid_cts[0][i], plain_x);
+  //     seal_tool_->encoder().decode(plain_x, x_values);
+  //     for (int s = 0; s < 30; ++s) {
+  //       std::cout << x_values[s] << ", ";
+  //     }
+  //     std::cout << std::endl;
+  //   }
+  //   seal_tool_->encoder().decode(biases_pts_[0], x_values);
+  //   std::cout << "biases_pts_[0]: " << std::endl;
+  //   for (int s = 0; s < 30; ++s) {
+  //     std::cout << x_values[s] << ", ";
+  //   }
+  //   std::cout << std::endl;
+  // }
 
 #ifdef _OPENMP
 #pragma omp parallel for
