@@ -5,6 +5,7 @@ import os
 import sys
 import time
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -28,7 +29,6 @@ from torch_json import save_structure_as_json
 # %%
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 128
-EPOCHS = 200
 INPUT_C = 1
 INPUT_H = 28
 INPUT_W = 28
@@ -52,8 +52,8 @@ parser.add_argument('--gap', action='store_true')
 parser.add_argument('--act', required=True, choices=ACTIVATIONS)
 parser.add_argument('--mode', default='train', choices=['train', 'prune', 'test'])
 parser.add_argument('--verbose', action='store_true', default=False)
-parser.add_argument('--total_epochs', type=int, default=100)
-parser.add_argument('--step_size', type=int, default=70)
+parser.add_argument('--epochs', type=int, default=200)
+# parser.add_argument('--step_size', type=int, default=70)
 parser.add_argument('--round', type=int, default=1)
 
 args = parser.parse_args()
@@ -62,6 +62,7 @@ bn_enabled = args.bn  # BatchNormalization flag
 do_enabled = args.do  # Dropout flag
 gap_enabled = args.gap  # GlobalAveragePooling flag
 act_str = args.act
+EPOCHS = args.epochs
 
 if act_str == 'relu':
     activation = nn.ReLU
@@ -250,7 +251,11 @@ def train_one_epoch(epoch, model, train_loader, val_loader, loss_func, optimizer
         global max_test_acc
         if max_test_acc < test_acc.compute():
             print(f'Test acc improved from {max_test_acc} to {test_acc.compute()}')
-            torch.save(model.state_dict(), BEST_MODEL_STATE_DICT_PATH)
+            if args.mode == 'prune':
+                # torch.save(model.state_dict(), f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}.pt")
+                torch.save(model, f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}.pt")
+            else:
+                torch.save(model.state_dict(), BEST_MODEL_STATE_DICT_PATH)
             print('Model saved.')
             max_test_acc = test_acc.compute()
         sw.add_scalar('Train Accuracy', train_acc.compute(), epoch+1)
@@ -259,6 +264,7 @@ def train_one_epoch(epoch, model, train_loader, val_loader, loss_func, optimizer
 
 
 def test(model, data_loader):
+    model.to(DEVICE)
     model.eval()  # Inference mode
 
     correct = 0
@@ -279,7 +285,7 @@ def test(model, data_loader):
 
 def prune_model(model):
     model.cpu()
-    DG = tp.DependencyGraph().build_dependency(model, torch.randn(1, 3, 32, 32))
+    DG = tp.DependencyGraph().build_dependency(model, torch.randn(1, INPUT_C, INPUT_H, INPUT_W))
 
     def prune_conv(conv, amount=0.2):
         strategy = tp.strategy.L1Strategy()
@@ -302,9 +308,9 @@ def prune_model(model):
         if isinstance(m, nn.Conv2d):
             prune_conv(m, linear_layer_prune_probs[idx])
             idx += 1
-        elif isinstance(m, nn.Linear):
-            prune_linear(m, linear_layer_prune_probs[idx])
-            idx += 1
+        # elif isinstance(m, nn.Linear):
+        #     prune_linear(m, linear_layer_prune_probs[idx])
+        #     idx += 1
 
     return model
 
@@ -404,10 +410,38 @@ def main():
     elif args.mode == 'prune':
         previous_ckpt = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round - 1}.pt"
         print(f"Pruning round {args.round}, load model from {previous_ckpt}")
-        model = MnistCNN()
-        model.load_state_dict(torch.load(previous_ckpt))
+        if args.round == 1:
+            model = MnistCNN()
+            model.load_state_dict(torch.load(previous_ckpt))
+        else:
+            model = torch.load(previous_ckpt)
+        params = sum([np.prod(p.size()) for p in model.parameters()])
+        # print(f"Number of Parameters: {params/1e6:.4f}M (Before pruning)")
+        print(f"Number of Parameters: {params} (Before pruning)")
+        test(model, loaders["test"])
+        model.to('cpu')
         prune_model(model)
         print(model)
+        params = sum([np.prod(p.size()) for p in model.parameters()])
+        print(f"Number of Parameters: {params} (After pruning)")
+        test(model, loaders["test"])
+        print("Start training...")
+        model = model.to(DEVICE)
+        for epoch in range(EPOCHS):
+            print(f"Epoch [{epoch+1:3d}/{EPOCHS:3d}]")
+            train_acc.reset(), test_acc.reset()
+            train_one_epoch(epoch, model, loaders["train"], loaders["test"], loss_func, optimizer, scheduler)
+            print()
+
+        print(f"Finished training! (Best accuracy: {max_test_acc})")
+        print()
+        pruned_model_structure_path = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}-{max_test_acc*100:.2f}-structure.json"
+        print(f"Save model struecture in {pruned_model_structure_path}")
+        save_structure_as_json(model, pruned_model_structure_path)
+        pruned_model_params_path = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}-{max_test_acc*100:.2f}-params.h5"
+        print(f"Save model parameters in {pruned_model_params_path}")
+        model = model.to('cpu')
+        save_params_as_hdf5(model, pruned_model_params_path)
 
 
 if __name__ == '__main__':

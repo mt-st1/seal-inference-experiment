@@ -1,0 +1,84 @@
+{
+  "class_name": "MnistCNN",
+  "structure": [
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_1",
+        "filters": 5,
+        "kernel_size": [
+          5,
+          5
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_1",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_1",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "Conv2d",
+      "info": {
+        "name": "Conv2d_2",
+        "filters": 40,
+        "kernel_size": [
+          5,
+          5
+        ],
+        "stride": [
+          2,
+          2
+        ],
+        "padding": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "class_name": "BatchNorm",
+      "info": {
+        "name": "BatchNorm_2",
+        "eps": "1e-05"
+      }
+    },
+    {
+      "class_name": "Activation",
+      "info": {
+        "name": "Activation_2",
+        "function": "SwishRg5Deg2"
+      }
+    },
+    {
+      "class_name": "Flatten",
+      "info": {
+        "name": "Flatten_1"
+      }
+    },
+    {
+      "class_name": "Linear",
+      "info": {
+        "name": "Linear_1",
+        "units": 10
+      }
+    }
+  ]
+}

@@ -5,9 +5,11 @@ import os
 import sys
 import time
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch_pruning as tp
 import torchmetrics
 import torchvision.transforms as transforms
 # from timm.data.auto_augment import rand_augment_transform
@@ -28,7 +30,6 @@ from torch_json import save_structure_as_json
 # %%
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 128
-EPOCHS = 200
 INPUT_C = 3
 INPUT_H = 32
 INPUT_W = 32
@@ -50,6 +51,11 @@ parser.add_argument('--bn', action='store_true')
 parser.add_argument('--do', action='store_true')
 parser.add_argument('--gap', action='store_true')
 parser.add_argument('--act', required=True, choices=ACTIVATIONS)
+parser.add_argument('--mode', default='train', choices=['train', 'prune', 'test'])
+parser.add_argument('--verbose', action='store_true', default=False)
+parser.add_argument('--epochs', type=int, default=200)
+# parser.add_argument('--step_size', type=int, default=140)
+parser.add_argument('--round', type=int, default=1)
 
 args = parser.parse_args()
 use_ghost_module = args.ghost
@@ -57,6 +63,7 @@ bn_enabled = args.bn  # BatchNormalization flag
 do_enabled = args.do  # Dropout flag
 gap_enabled = args.gap  # GlobalAveragePooling flag
 act_str = args.act
+EPOCHS = args.epochs
 
 if act_str == 'relu':
     activation = nn.ReLU
@@ -135,6 +142,7 @@ if gap_enabled:
     BASE_FILE_NAME += "-GAP"
 SAVE_MODEL_DIR_NAME = "saved_models"
 BEST_MODEL_STATE_DICT_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-{md_str}-best.pt"
+PRUNE_MODEL_STATE_DICT_BASE = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-round"
 
 
 # %%
@@ -278,7 +286,11 @@ def train_one_epoch(epoch, model, train_loader, val_loader, loss_func, optimizer
         global max_test_acc
         if max_test_acc < test_acc.compute():
             print(f'Test acc improved from {max_test_acc} to {test_acc.compute()}')
-            torch.save(model.state_dict(), BEST_MODEL_STATE_DICT_PATH)
+            if args.mode == 'prune':
+                # torch.save(model.state_dict(), f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}.pt")
+                torch.save(model, f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}.pt")
+            else:
+                torch.save(model.state_dict(), BEST_MODEL_STATE_DICT_PATH)
             print('Model saved.')
             max_test_acc = test_acc.compute()
         sw.add_scalar('Train Accuracy', train_acc.compute(), epoch+1)
@@ -287,6 +299,7 @@ def train_one_epoch(epoch, model, train_loader, val_loader, loss_func, optimizer
 
 # %%
 def test(model, data_loader):
+    model.to(DEVICE)
     model.eval()  # Inference mode
 
     correct = 0
@@ -303,6 +316,84 @@ def test(model, data_loader):
     acc = 100 * float(correct / total)
     print(f"Accuracy: {acc:.2f}")
     return acc
+
+
+def eval(model, test_loader):
+    model.to(DEVICE)
+    model.eval()  # Inference mode
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
+
+            outputs = model(inputs)
+            preds = torch.max(outputs, dim=1)[1]
+            total += labels.size(0)
+            correct += (preds == labels).sum().item()
+
+    return correct / total
+
+
+def prune_model(model):
+    model.cpu()
+    DG = tp.DependencyGraph().build_dependency(model, torch.randn(1, INPUT_C, INPUT_H, INPUT_W))
+
+    def prune_conv(conv, amount=0.2):
+        strategy = tp.strategy.L1Strategy()
+        pruning_index = strategy(conv.weight, amount=amount)
+        plan = DG.get_pruning_plan(conv, tp.prune_conv, pruning_index)
+        plan.exec()
+
+    def prune_linear(linear, amount=0.2):
+        strategy = tp.strategy.L1Strategy()
+        pruning_index = strategy(linear.weight, amount=amount)
+        plan = DG.get_pruning_plan(linear, tp.prune_linear, pruning_index)
+        plan.exec()
+
+    if gap_enabled:
+        linear_layer_prune_probs = [0.0, 0.05, 0.1]
+    else:
+        linear_layer_prune_probs = [0.0, 0.05, 0.1, 0.2]
+    idx = 0
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            prune_conv(m, linear_layer_prune_probs[idx])
+            idx += 1
+        # elif isinstance(m, nn.Linear):
+        #     prune_linear(m, linear_layer_prune_probs[idx])
+        #     idx += 1
+
+    return model
+
+
+# def train_model(model, train_loader, test_loader, loss_func):
+#     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
+#     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.step_size, 0.1)
+#     model.to(DEVICE)
+
+#     best_acc = -1
+#     for epoch in range(EPOCHS):
+#         model.train()
+#         for i, (img, target) in enumerate(train_loader):
+#             img, target = img.to(DEVICE), target.to(DEVICE)
+#             optimizer.zero_grad()
+#             out = model(img)
+#             loss = loss_func(out, target)
+#             loss.backward()
+#             optimizer.step()
+#             # if i % 10 == 0 and args.verbose:
+#             #     print("Epoch %d/%d, iter %d/%d, loss=%.4f"%(epoch, args.epochs, i, len(train_loader), loss.item()))
+#         model.eval()
+#         acc = eval(model, test_loader)
+#         print(f"Epoch {epoch}/{args.epochs}, Acc={acc:.4f}")
+#         if best_acc < acc:
+#             print(f'Test acc improved from {best_acc} to {acc}')
+#             torch.save(model.state_dict(), f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}-{acc}.pt")
+#             best_acc = acc
+#         scheduler.step()
+#     print(f"Best Accuracy = {best_acc:.4f}")
 
 
 # %%
@@ -357,46 +448,86 @@ def main():
     optimizer = optim.AdamW(model.parameters())
     scheduler = CosineLRScheduler(optimizer, t_initial=EPOCHS, lr_min=1e-4, warmup_t=20, warmup_lr_init=1e-4, warmup_prefix=True)
 
-    # Train model
-    model = model.to(DEVICE)
-    for epoch in range(EPOCHS):
-        print(f"Epoch [{epoch+1:3d}/{EPOCHS:3d}]")
-        train_acc.reset(), test_acc.reset()
-        train_one_epoch(epoch, model, loaders["train"], loaders["test"], loss_func, optimizer)
-        scheduler.step(epoch+1)
+    if args.mode == 'train':
+        # Train model
+        model = model.to(DEVICE)
+        for epoch in range(EPOCHS):
+            print(f"Epoch [{epoch+1:3d}/{EPOCHS:3d}]")
+            train_acc.reset(), test_acc.reset()
+            train_one_epoch(epoch, model, loaders["train"], loaders["test"], loss_func, optimizer)
+            scheduler.step(epoch+1)
+            print()
+
+        print(f"Finished training! (Best accuracy: {max_test_acc})")
         print()
 
-    print(f"Finished training! (Best accuracy: {max_test_acc})")
-    print()
+        # Test model
+        best_model = CifarCNN()
+        best_model.load_state_dict(torch.load(BEST_MODEL_STATE_DICT_PATH, map_location=torch.device(DEVICE)))
+        best_model = best_model.to(DEVICE)
+        start = time.perf_counter()
+        test_accuracy = test(best_model, loaders["test"])
+        end = time.perf_counter()
+        print(f"Test time using model state dict: {end - start} [sec]\n")
 
-    # Test model
-    best_model = CifarCNN()
-    best_model.load_state_dict(torch.load(BEST_MODEL_STATE_DICT_PATH, map_location=torch.device(DEVICE)))
-    best_model = best_model.to(DEVICE)
-    start = time.perf_counter()
-    test_accuracy = test(best_model, loaders["test"])
-    end = time.perf_counter()
-    print(f"Test time using model state dict: {end - start} [sec]\n")
+        now = datetime.datetime.now()
+        md_hm_str = now.strftime('%m%d_%H%M')
+        test_acc_str = f'{test_accuracy:.2f}'
+        common_name = f'{BASE_FILE_NAME}-{test_acc_str}_{EPOCHS}epoch-{md_hm_str}'
+        MODEL_STRUCTURE_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-structure.json"
+        MODEL_PARAMS_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{common_name}-params.h5"
+        HISTORY_GRAPH_PATH = f"{CUR_DIR}/graphs/{common_name}_history.png"
 
-    now = datetime.datetime.now()
-    md_hm_str = now.strftime('%m%d_%H%M')
-    test_acc_str = f'{test_accuracy:.2f}'
-    common_name = f'{BASE_FILE_NAME}-{test_acc_str}_{EPOCHS}epoch-{md_hm_str}'
-    MODEL_STRUCTURE_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-structure.json"
-    MODEL_PARAMS_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{common_name}-params.h5"
-    HISTORY_GRAPH_PATH = f"{CUR_DIR}/graphs/{common_name}_history.png"
+        # Save model structure in JSON and params in hdf5
+        save_structure_as_json(model, MODEL_STRUCTURE_PATH)
+        best_model = best_model.to('cpu')
+        save_params_as_hdf5(best_model, MODEL_PARAMS_PATH)
 
-    # Save model structure in JSON and params in hdf5
-    save_structure_as_json(model, MODEL_STRUCTURE_PATH)
-    best_model = best_model.to('cpu')
-    save_params_as_hdf5(best_model, MODEL_PARAMS_PATH)
+        # Plot history graph (accuracy & loss) and save
+        plot_and_save_training_history(running_loss_history,
+                                       val_running_loss_history,
+                                       running_acc_history,
+                                       val_running_acc_history,
+                                       HISTORY_GRAPH_PATH)
+    elif args.mode == 'prune':
+        previous_ckpt = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round - 1}.pt"
+        print(f"Pruning round {args.round}, load model from {previous_ckpt}")
+        if args.round == 1:
+            model = CifarCNN()
+            model.load_state_dict(torch.load(previous_ckpt))
+        else:
+            model = torch.load(previous_ckpt)
+        params = sum([np.prod(p.size()) for p in model.parameters()])
+        # print(f"Number of Parameters: {params/1e6:.4f}M (Before pruning)")
+        print(f"Number of Parameters: {params} (Before pruning)")
+        test(model, loaders["test"])
+        model.to('cpu')
+        prune_model(model)
+        print(model)
+        params = sum([np.prod(p.size()) for p in model.parameters()])
+        print(f"Number of Parameters: {params} (After pruning)")
+        test(model, loaders["test"])
+        print("Start training...")
+        # optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.step_size, 0.1)
+        model = model.to(DEVICE)
+        for epoch in range(EPOCHS):
+            print(f"Epoch [{epoch+1:3d}/{EPOCHS:3d}]")
+            train_acc.reset(), test_acc.reset()
+            train_one_epoch(epoch, model, loaders["train"], loaders["test"], loss_func, optimizer)
+            scheduler.step(epoch+1)
+            print()
+        # train_model(model, loaders["train"], loaders["test"], loss_func)
 
-    # Plot history graph (accuracy & loss) and save
-    plot_and_save_training_history(running_loss_history,
-                                   val_running_loss_history,
-                                   running_acc_history,
-                                   val_running_acc_history,
-                                   HISTORY_GRAPH_PATH)
+        print(f"Finished training! (Best accuracy: {max_test_acc})")
+        print()
+        pruned_model_structure_path = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}-{max_test_acc*100:.2f}-structure.json"
+        print(f"Save model struecture in {pruned_model_structure_path}")
+        save_structure_as_json(model, pruned_model_structure_path)
+        pruned_model_params_path = f"{PRUNE_MODEL_STATE_DICT_BASE}{args.round}-{max_test_acc*100:.2f}-params.h5"
+        print(f"Save model parameters in {pruned_model_params_path}")
+        model = model.to('cpu')
+        save_params_as_hdf5(model, pruned_model_params_path)
 
 
 # %%
