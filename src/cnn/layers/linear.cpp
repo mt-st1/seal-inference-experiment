@@ -48,11 +48,6 @@ void Linear::forward(seal::Ciphertext& x_ct,
       for (int s = 0; s < 10; ++s) {
         std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
       }
-      seal_tool_->encoder().decode(biases_pts_[i], bias_values);
-      for (int s = 0; s < 10; ++s) {
-        std::cout << "biases_values[" << s << "]: " << bias_values[s]
-                  << std::endl;
-      }
     }
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
   }

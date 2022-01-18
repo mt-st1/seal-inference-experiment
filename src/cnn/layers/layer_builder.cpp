@@ -635,7 +635,7 @@ std::shared_ptr<Layer> build_linear(
     for (std::size_t c = 0; c < INPUT_C; ++c) {
       for (std::size_t h = 0; h < INPUT_H; ++h) {
         for (std::size_t w = 0; w < INPUT_W; ++w) {
-          pos = c * INPUT_H + h * INPUT_W + w;
+          pos = c * (INPUT_H * INPUT_W) + h * INPUT_W + w;
           slot_idx = INPUT_HW_SLOT_IDX[h][w] + (-FLATTEN_ROTATION_STEP[c]);
           weight = folding_value * flattened_weights[oc * in_channel + pos];
           if (fabs(weight) < ROUND_THRESHOLD) {

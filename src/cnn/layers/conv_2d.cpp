@@ -131,7 +131,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   //   }
   // }
 #ifdef _OPENMP
-#pragma omp parallel for collapse(3) private(mid_cts_idx)
+#pragma omp parallel for collapse(2) private(mid_cts_idx)
 #endif
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {

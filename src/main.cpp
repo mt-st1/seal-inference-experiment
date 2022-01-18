@@ -233,20 +233,33 @@ int main(int argc, char* argv[]) {
   helper::he::print_parameters(context);
   cout << endl;
 
+  /* Create seal keys */
+  seal::KeyGenerator keygen(*context);
+  auto secret_key = keygen.secret_key();
+  seal::PublicKey public_key;
+  keygen.create_public_key(public_key);
+  seal::RelinKeys relin_keys;
+  keygen.create_relin_keys(relin_keys);
+
   /* Load seal keys */
-  shared_ptr<seal::SecretKey> secret_key(new seal::SecretKey);
-  secret_key->load(*context, *secrets_ifs(constants::fname::SECRET_KEY_SUFFIX));
-  shared_ptr<seal::PublicKey> public_key(new seal::PublicKey);
-  public_key->load(*context, *secrets_ifs(constants::fname::PUBLIC_KEY_SUFFIX));
-  shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
-  relin_keys->load(*context, *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
+  // shared_ptr<seal::SecretKey> secret_key(new seal::SecretKey);
+  // secret_key->load(*context,
+  // *secrets_ifs(constants::fname::SECRET_KEY_SUFFIX));
+  // shared_ptr<seal::PublicKey> public_key(new seal::PublicKey);
+  // public_key->load(*context,
+  // *secrets_ifs(constants::fname::PUBLIC_KEY_SUFFIX));
+  // shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
+  // relin_keys->load(*context,
+  // *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
   // shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
   // galois_keys->load(*context,
   //                   *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  // GALOIS_KEYS.load(*context,
+  //                  *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
 
   seal::CKKSEncoder encoder(*context);
-  seal::Encryptor encryptor(*context, *public_key);
-  seal::Decryptor decryptor(*context, *secret_key);
+  seal::Encryptor encryptor(*context, public_key);
+  seal::Decryptor decryptor(*context, secret_key);
 
   const size_t log2_f = std::log2(params.coeff_modulus()[1].value() - 1) + 1;
   const double scale = static_cast<double>(static_cast<uint64_t>(1) << log2_f);
@@ -262,7 +275,7 @@ int main(int argc, char* argv[]) {
   //                                            scale);
   shared_ptr<helper::he::SealTool> seal_tool =
       std::make_shared<helper::he::SealTool>(evaluator, encoder, decryptor,
-                                             *relin_keys, slot_count, scale);
+                                             relin_keys, slot_count, scale);
 
   /* Load test dataset for inference */
   cout << "Loading test images & labels..." << endl;
@@ -322,7 +335,7 @@ int main(int argc, char* argv[]) {
          << endl;
 
     /* Create galois keys */
-    seal::KeyGenerator keygen(*context);
+    // seal::KeyGenerator keygen(*context);
     USE_ROTATION_STEPS.erase(0);
     cout << "Creating " << USE_ROTATION_STEPS.size() << " galois keys..."
          << endl;
@@ -334,36 +347,6 @@ int main(int argc, char* argv[]) {
     cout << endl;
     keygen.create_galois_keys(rotation_steps, GALOIS_KEYS);
     cout << "Finish creating!\n" << endl;
-    {
-      vector<double> input;
-      input.reserve(slot_count);
-      double curr_point = 0;
-      double step_size = 1.0 / (static_cast<double>(slot_count) - 1);
-      for (size_t i = 0; i < slot_count; i++, curr_point += step_size) {
-        input.push_back(curr_point);
-      }
-      cout << "Input vector:" << endl;
-      for (int i = 0; i < 10; ++i) {
-        cout << input[i] << ", ";
-      }
-      cout << endl;
-      cout << "Encode and encrypt." << endl;
-      seal::Plaintext plain;
-      encoder.encode(input, scale, plain);
-      seal::Ciphertext encrypted;
-      encryptor.encrypt(plain, encrypted);
-      seal::Ciphertext rotated;
-      cout << "Rotate 2 steps left." << endl;
-      evaluator.rotate_vector(encrypted, 2, GALOIS_KEYS, rotated);
-      cout << "Decrypted:" << endl;
-      decryptor.decrypt(rotated, plain);
-      vector<double> result;
-      encoder.decode(plain, result);
-      for (int i = 0; i < 10; ++i) {
-        cout << result[i] << ", ";
-      }
-      cout << endl;
-    }
 
     /* Execute inference on test data */
     inference_image_count =
@@ -439,9 +422,7 @@ int main(int argc, char* argv[]) {
         encoder.decode(plain_result, tmp_results);
         {
           cout << "\tLabel: " << label << endl;
-          for (int s = 0; s < 10; ++s) {
-            cout << "\ttmp_results[" << s << "]: " << tmp_results[s] << endl;
-          }
+          cout << "\tresults[0]: " << tmp_results[0] << endl;
         }
         results[i][label] = tmp_results[0];
       }
