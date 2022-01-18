@@ -14,7 +14,7 @@ namespace cnn::encrypted {
 AvgPool2d::AvgPool2d(const std::string layer_name,
                      const std::size_t pool_hw_size,
                      const seal::Plaintext& plain_mul_factor,
-                     const std::vector<int>& rotation_map,
+                     const std::vector<int> rotation_map,
                      const std::shared_ptr<helper::he::SealTool> seal_tool)
     : Layer(ELayerType::AVG_POOL_2D, layer_name, seal_tool),
       pool_hw_size_(pool_hw_size),
@@ -56,7 +56,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     }
   } else {
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
 #endif
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
@@ -64,7 +64,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
                                               GALOIS_KEYS, mid_cts[ci][i]);
         seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
                                                        plain_mul_factor_);
-        seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);
+        // seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);
       }
     }
 
@@ -73,6 +73,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
 #endif
     for (std::size_t i = 0; i < input_channel_size; ++i) {
       seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+      seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
       y_cts[i].scale() = seal_tool_->scale();
     }
   }

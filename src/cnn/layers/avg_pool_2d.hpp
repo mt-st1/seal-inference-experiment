@@ -28,7 +28,7 @@ public:
   AvgPool2d(const std::string layer_name,
             const std::size_t pool_hw_size,
             const seal::Plaintext& plain_mul_factor,
-            const std::vector<int>& rotation_map,
+            const std::vector<int> rotation_map,
             const std::shared_ptr<helper::he::SealTool> seal_tool);
   AvgPool2d();
   ~AvgPool2d();

@@ -39,18 +39,33 @@ void Linear::forward(seal::Ciphertext& x_ct,
     seal_tool_->evaluator().rescale_to_next_inplace(wx_ct);
     helper::he::total_sum(wx_ct, y_cts[i], seal_tool_->slot_count(),
                           seal_tool_->evaluator(), GALOIS_KEYS);
-    {
+    y_cts[i].scale() = seal_tool_->scale();
+    if (i == 0) {
       seal::Plaintext plain_y;
-      std::vector<double> y_values(seal_tool_->slot_count());
+      std::vector<double> y_values, bias_values;
       seal_tool_->decryptor().decrypt(y_cts[i], plain_y);
       seal_tool_->encoder().decode(plain_y, y_values);
       for (int s = 0; s < 10; ++s) {
         std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
       }
+      seal_tool_->encoder().decode(biases_pts_[i], bias_values);
+      for (int s = 0; s < 10; ++s) {
+        std::cout << "biases_values[" << s << "]: " << bias_values[s]
+                  << std::endl;
+      }
     }
-    y_cts[i].scale() = seal_tool_->scale();
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
   }
+
+  // {
+  //   seal::Plaintext plain_y;
+  //   std::vector<double> y_values(seal_tool_->slot_count());
+  //   seal_tool_->decryptor().decrypt(y_cts[0], plain_y);
+  //   seal_tool_->encoder().decode(plain_y, y_values);
+  //   for (int s = 0; s < 10; ++s) {
+  //     std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
+  //   }
+  // }
 }
 
 }  // namespace cnn::encrypted

@@ -322,14 +322,48 @@ int main(int argc, char* argv[]) {
          << endl;
 
     /* Create galois keys */
-    seal::SEALContext context(params);
-    seal::KeyGenerator keygen(context);
+    seal::KeyGenerator keygen(*context);
+    USE_ROTATION_STEPS.erase(0);
     cout << "Creating " << USE_ROTATION_STEPS.size() << " galois keys..."
          << endl;
-    vector<int> rotation_steps(USE_ROTATION_STEPS.begin(),
-                               USE_ROTATION_STEPS.end());
+    const vector<int> rotation_steps(USE_ROTATION_STEPS.begin(),
+                                     USE_ROTATION_STEPS.end());
+    for (const int step : rotation_steps) {
+      cout << step << ", ";
+    }
+    cout << endl;
     keygen.create_galois_keys(rotation_steps, GALOIS_KEYS);
     cout << "Finish creating!\n" << endl;
+    {
+      vector<double> input;
+      input.reserve(slot_count);
+      double curr_point = 0;
+      double step_size = 1.0 / (static_cast<double>(slot_count) - 1);
+      for (size_t i = 0; i < slot_count; i++, curr_point += step_size) {
+        input.push_back(curr_point);
+      }
+      cout << "Input vector:" << endl;
+      for (int i = 0; i < 10; ++i) {
+        cout << input[i] << ", ";
+      }
+      cout << endl;
+      cout << "Encode and encrypt." << endl;
+      seal::Plaintext plain;
+      encoder.encode(input, scale, plain);
+      seal::Ciphertext encrypted;
+      encryptor.encrypt(plain, encrypted);
+      seal::Ciphertext rotated;
+      cout << "Rotate 2 steps left." << endl;
+      evaluator.rotate_vector(encrypted, 2, GALOIS_KEYS, rotated);
+      cout << "Decrypted:" << endl;
+      decryptor.decrypt(rotated, plain);
+      vector<double> result;
+      encoder.decode(plain, result);
+      for (int i = 0; i < 10; ++i) {
+        cout << result[i] << ", ";
+      }
+      cout << endl;
+    }
 
     /* Execute inference on test data */
     inference_image_count =
@@ -360,6 +394,29 @@ int main(int argc, char* argv[]) {
            << "\t  encrypted image has " << enc_channel_wise_packed_image.size()
            << " channels\n"
            << endl;
+      // {
+      //   cout << "Image [" << i << "]:" << endl;
+      //   size_t counter = 0;
+      //   for (size_t h = 0; h < input_h; ++h) {
+      //     for (size_t w = 0; w < input_w; ++w) {
+      //       cout << test_images[i][counter++] << ", ";
+      //     }
+      //     cout << endl;
+      //   }
+      //   seal::Ciphertext enc_image_channel =
+      //   enc_channel_wise_packed_image[0]; seal::Plaintext plain_y;
+      //   std::vector<double> y_values(seal_tool->slot_count());
+      //   seal_tool->decryptor().decrypt(enc_image_channel, plain_y);
+      //   seal_tool->encoder().decode(plain_y, y_values);
+      //   cout << "Decrypted image [" << i << "]: " << endl;
+      //   counter = 0;
+      //   for (size_t h = 0; h < input_h; ++h) {
+      //     for (size_t w = 0; w < input_w; ++w) {
+      //       cout << y_values[counter++] << ", ";
+      //     }
+      //     cout << endl;
+      //   }
+      // }
 
       /* Execute inference */
       cout << "\tExecuting inference..." << endl;

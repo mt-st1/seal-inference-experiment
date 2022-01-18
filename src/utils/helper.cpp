@@ -73,8 +73,8 @@ void total_sum(seal::Ciphertext& target_ct,
                seal::GaloisKeys& galois_keys) {
   std::size_t rotate_count = std::ceil(std::log2(slot_count));
   dest_ct = target_ct;
-  for (std::size_t i = 0; i < rotate_count; ++i) {
-    evaluator.rotate_vector(dest_ct, static_cast<int>(std::pow(2, i)),
+  for (std::size_t n = 0; n < rotate_count; ++n) {
+    evaluator.rotate_vector(dest_ct, static_cast<int>(std::pow(2, n)),
                             galois_keys, target_ct);
     evaluator.add_inplace(dest_ct, target_ct);
   }

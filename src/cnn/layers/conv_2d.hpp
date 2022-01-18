@@ -36,7 +36,7 @@ public:
   Conv2d(const std::string layer_name,
          const types::Plaintext3d& filters_pts,
          const std::vector<seal::Plaintext>& biases_pts,
-         const std::vector<int>& rotation_map,
+         const std::vector<int> rotation_map,
          const std::shared_ptr<helper::he::SealTool> seal_tool);
   Conv2d();
   ~Conv2d();

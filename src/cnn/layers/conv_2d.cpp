@@ -82,7 +82,7 @@ namespace cnn::encrypted {
 Conv2d::Conv2d(const std::string layer_name,
                const types::Plaintext3d& filters_pts,
                const std::vector<seal::Plaintext>& biases_pts,
-               const std::vector<int>& rotation_map,
+               const std::vector<int> rotation_map,
                const std::shared_ptr<helper::he::SealTool> seal_tool)
     : Layer(ELayerType::CONV_2D, layer_name, seal_tool),
       filters_pts_(filters_pts),
@@ -106,6 +106,30 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   size_t mid_cts_idx;
+  std::cout << "rotation_map: " << std::endl;
+  for (size_t i = 0; i < filter_hw_size; ++i) {
+    std::cout << rotation_map_[i] << ", ";
+  }
+  std::cout << std::endl;
+  {
+    seal::Plaintext plain_x;
+    std::vector<double> x_values;
+    seal_tool_->decryptor().decrypt(x_cts[0], plain_x);
+    seal_tool_->encoder().decode(plain_x, x_values);
+    std::cout << "x_values:" << std::endl;
+    for (int s = 0; s < 30; ++s) {
+      std::cout << x_values[s] << ", ";
+    }
+    std::cout << std::endl;
+    for (int i = 0; i < filter_hw_size; ++i) {
+      seal_tool_->encoder().decode(filters_pts_[0][0][i], x_values);
+      std::cout << "filter[" << i << "] values:" << std::endl;
+      for (int s = 0; s < 30; ++s) {
+        std::cout << x_values[s] << ", ";
+      }
+      std::cout << std::endl;
+    }
+  }
 #ifdef _OPENMP
 #pragma omp parallel for collapse(3) private(mid_cts_idx)
 #endif
@@ -115,10 +139,44 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
         mid_cts_idx = ci * filter_hw_size + i;
         seal_tool_->evaluator().rotate_vector(
             x_cts[ci], rotation_map_[i], GALOIS_KEYS, mid_cts[fi][mid_cts_idx]);
+        // {
+        //   if (fi == 0) {
+        //     seal::Plaintext plain_x;
+        //     std::vector<double> x_values;
+        //     std::cout << "Rotated (" << rotation_map_[i] << ") mid_cts[0]["
+        //               << mid_cts_idx << "]:" << std::endl;
+        //     seal_tool_->decryptor().decrypt(mid_cts[fi][mid_cts_idx],
+        //     plain_x); seal_tool_->encoder().decode(plain_x, x_values); for
+        //     (int s = 0; s < 30; ++s) {
+        //       std::cout << x_values[s] << ", ";
+        //     }
+        //     std::cout << std::endl;
+        //   }
+        // }
         seal_tool_->evaluator().multiply_plain_inplace(mid_cts[fi][mid_cts_idx],
                                                        filters_pts_[fi][ci][i]);
       }
     }
+  }
+
+  {
+    seal::Plaintext plain_x;
+    std::vector<double> x_values;
+    for (int i = 0; i < filter_hw_size; ++i) {
+      std::cout << "mid_cts[0][" << i << "]: " << std::endl;
+      seal_tool_->decryptor().decrypt(mid_cts[0][i], plain_x);
+      seal_tool_->encoder().decode(plain_x, x_values);
+      for (int s = 0; s < 30; ++s) {
+        std::cout << x_values[s] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    seal_tool_->encoder().decode(biases_pts_[0], x_values);
+    std::cout << "biases_pts_[0]: " << std::endl;
+    for (int s = 0; s < 30; ++s) {
+      std::cout << x_values[s] << ", ";
+    }
+    std::cout << std::endl;
   }
 
 #ifdef _OPENMP
@@ -131,6 +189,16 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
     // seal_tool_->evaluator().mod_switch_to_inplace(biases_pts_[i],
     //                                               y_cts[i].parms_id());
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
+  }
+
+  {
+    seal::Plaintext plain_y;
+    std::vector<double> y_values(seal_tool_->slot_count());
+    seal_tool_->decryptor().decrypt(y_cts[0], plain_y);
+    seal_tool_->encoder().decode(plain_y, y_values);
+    for (int s = 0; s < 10; ++s) {
+      std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
+    }
   }
 }
 
