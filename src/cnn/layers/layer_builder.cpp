@@ -407,7 +407,9 @@ std::shared_ptr<Layer> build_avg_pool_2d(
   seal::Plaintext plain_mul_factor;
   std::size_t pool_hw_size = pool_height * pool_width;
 
-  if (OPT_OPTION.enable_fold_pool_coeff) {
+  if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+    CURRENT_POOL_MUL_COEFF *= (1.0 / pool_hw_size);
+  } else if (OPT_OPTION.enable_fold_pool_coeff) {
     CURRENT_POOL_MUL_COEFF = 1.0 / pool_hw_size;
     SHOULD_MUL_POOL_COEFF = true;
   } else if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
@@ -622,7 +624,6 @@ std::shared_ptr<Layer> build_linear(
     SHOULD_MUL_POOL_COEFF = false;
   }
 
-  std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
   std::vector<seal::Plaintext> plain_weights(out_channel),
       plain_biases(out_channel);
 
@@ -632,6 +633,7 @@ std::shared_ptr<Layer> build_linear(
 #pragma omp parallel for private(weight, slot_idx, pos)
 #endif
   for (std::size_t oc = 0; oc < out_channel; ++oc) {
+    std::vector<double> weight_values_in_slot(seal_tool->slot_count(), 0);
     for (std::size_t c = 0; c < INPUT_C; ++c) {
       for (std::size_t h = 0; h < INPUT_H; ++h) {
         for (std::size_t w = 0; w < INPUT_W; ++w) {
@@ -675,30 +677,45 @@ std::shared_ptr<Layer> build_flatten(
   const std::string layer_name = layer_info["name"].get<std::string>();
   std::cout << "  Building " << layer_name << "..." << std::endl;
 
-  const std::size_t step_col =
-                        INPUT_HW_SLOT_IDX[0][1] - INPUT_HW_SLOT_IDX[0][0],  // 4
-      step_row = INPUT_HW_SLOT_IDX[1][0] - INPUT_HW_SLOT_IDX[0][0];  // 112
-  const std::size_t slot_size_per_period = step_col * INPUT_W;       // 16
-  const std::size_t ct_size_gap_full_period = step_row / INPUT_W;    // 28
+  const std::size_t step_col = INPUT_HW_SLOT_IDX[0][1] -
+                               INPUT_HW_SLOT_IDX[0][0],              // 4, 8
+      step_row = INPUT_HW_SLOT_IDX[1][0] - INPUT_HW_SLOT_IDX[0][0];  // 112, 256
+  const std::size_t slot_size_per_period = step_col * INPUT_W;       // 16, 32
+  const std::size_t ct_size_gap_full_period = step_row / INPUT_W;    // 28, 64
   const std::size_t slot_size_gap_full_period =
       INPUT_HW_SLOT_IDX[INPUT_H - 1][INPUT_W - 1] +
       ((ct_size_gap_full_period - 1) / step_col) * slot_size_per_period +
-      ((ct_size_gap_full_period - 1) % step_col) + 1;  // 448
-  std::cout << "step_col: " << step_col << std::endl;
-  std::cout << "slot_size_per_period: " << slot_size_per_period << std::endl;
-  std::cout << "ct_size_gap_full_period: " << ct_size_gap_full_period
-            << std::endl;
-  std::cout << "slot_size_gap_full_period: " << slot_size_gap_full_period
-            << std::endl;
-  int step;
-  FLATTEN_ROTATION_STEP.resize(INPUT_C);
-  for (int i = 0; i < INPUT_C; ++i) {
-    step =
-        -((((i % ct_size_gap_full_period) / step_col) * slot_size_per_period +
-           i % step_col) +
-          ((i / ct_size_gap_full_period) * slot_size_gap_full_period));
-    FLATTEN_ROTATION_STEP[i] = step;
-    USE_ROTATION_STEPS.insert(step);
+      ((ct_size_gap_full_period - 1) % step_col) + 1;  // 448, 1024
+  // {
+  //   std::cout << "INPUT_H: " << INPUT_H << std::endl;
+  //   std::cout << "INPUT_W: " << INPUT_W << std::endl;
+  //   std::cout << "INPUT_C: " << INPUT_C << std::endl;
+  //   std::cout << "step_col: " << step_col << std::endl;
+  //   std::cout << "step_row: " << step_row << std::endl;
+  //   std::cout << "slot_size_per_period: " << slot_size_per_period <<
+  //   std::endl; std::cout << "ct_size_gap_full_period: " <<
+  //   ct_size_gap_full_period
+  //             << std::endl;
+  //   std::cout << "slot_size_gap_full_period: " << slot_size_gap_full_period
+  //             << std::endl;
+  // }
+  if (INPUT_H == 1 && INPUT_W == 1) {
+    FLATTEN_ROTATION_STEP.resize(INPUT_C);
+    for (int i = 0; i < INPUT_C; ++i) {
+      FLATTEN_ROTATION_STEP[i] = -1 * i;
+      USE_ROTATION_STEPS.insert(-1 * i);
+    }
+  } else {
+    int step;
+    FLATTEN_ROTATION_STEP.resize(INPUT_C);
+    for (int i = 0; i < INPUT_C; ++i) {
+      step =
+          -((((i % ct_size_gap_full_period) / step_col) * slot_size_per_period +
+             i % step_col) +
+            ((i / ct_size_gap_full_period) * slot_size_gap_full_period));
+      FLATTEN_ROTATION_STEP[i] = step;
+      USE_ROTATION_STEPS.insert(step);
+    }
   }
 
   { INPUT_UNITS = INPUT_C * INPUT_H * INPUT_W; }

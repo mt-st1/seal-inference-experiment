@@ -105,12 +105,12 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   y_cts.resize(filter_count);
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
-  size_t mid_cts_idx;
-  std::cout << "rotation_map: " << std::endl;
-  for (size_t i = 0; i < filter_hw_size; ++i) {
-    std::cout << rotation_map_[i] << ", ";
-  }
-  std::cout << std::endl;
+  // size_t mid_cts_idx;
+  // std::cout << "rotation_map: " << std::endl;
+  // for (size_t i = 0; i < filter_hw_size; ++i) {
+  //   std::cout << rotation_map_[i] << ", ";
+  // }
+  // std::cout << std::endl;
   // {
   //   seal::Plaintext plain_x;
   //   std::vector<double> x_values;
@@ -131,12 +131,12 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   //   }
   // }
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(mid_cts_idx)
+#pragma omp parallel for collapse(3)
 #endif
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
       for (size_t i = 0; i < filter_hw_size; ++i) {
-        mid_cts_idx = ci * filter_hw_size + i;
+        size_t mid_cts_idx = ci * filter_hw_size + i;
         seal_tool_->evaluator().rotate_vector(
             x_cts[ci], rotation_map_[i], GALOIS_KEYS, mid_cts[fi][mid_cts_idx]);
         // {
@@ -144,7 +144,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
         //     seal::Plaintext plain_x;
         //     std::vector<double> x_values;
         //     std::cout << "Rotated (" << rotation_map_[i] << ") mid_cts[0]["
-        //               << mid_cts_idx << "]:" << std::endl;
+        //     //               << mid_cts_idx << "]:" << std::endl;
         //     seal_tool_->decryptor().decrypt(mid_cts[fi][mid_cts_idx],
         //     plain_x); seal_tool_->encoder().decode(plain_x, x_values); for
         //     (int s = 0; s < 30; ++s) {
@@ -191,15 +191,15 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
   }
 
-  {
-    seal::Plaintext plain_y;
-    std::vector<double> y_values(seal_tool_->slot_count());
-    seal_tool_->decryptor().decrypt(y_cts[0], plain_y);
-    seal_tool_->encoder().decode(plain_y, y_values);
-    for (int s = 0; s < 10; ++s) {
-      std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
-    }
-  }
+  // {
+  //   seal::Plaintext plain_y;
+  //   std::vector<double> y_values(seal_tool_->slot_count());
+  //   seal_tool_->decryptor().decrypt(y_cts[0], plain_y);
+  //   seal_tool_->encoder().decode(plain_y, y_values);
+  //   for (int s = 0; s < 10; ++s) {
+  //     std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
+  //   }
+  // }
 }
 
 }  // namespace cnn::encrypted

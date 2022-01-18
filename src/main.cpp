@@ -134,6 +134,8 @@ int main(int argc, char* argv[]) {
                      cmdline::oneof<string>(constants::dataset::MNIST,
                                             constants::dataset::CIFAR10));
   parser.add<string>("model", 'M', "Model name trained with PyTorch");
+  parser.add<string>("model-structure", 0, "Model structure file name (json)",
+                     false, "default");
   parser.add<string>("model-params", 0, "Model params file name (h5)");
   parser.add<string>("activation", 'A', "Activation function name");
   parser.add("fuse-layer", 0,
@@ -161,6 +163,7 @@ int main(int argc, char* argv[]) {
   const string secret_fname_prefix = parser.get<string>("secret-prefix");
   const string dataset_name = parser.get<string>("dataset");
   const string model_name = parser.get<string>("model");
+  const string model_structure_fname = parser.get<string>("model-structure");
   const string model_params_fname = parser.get<string>("model-params");
   const string activation_str = parser.get<string>("activation");
   const bool enable_fuse_linear_layer = parser.exist("fuse-layer");
@@ -174,16 +177,25 @@ int main(int argc, char* argv[]) {
 
   const string saved_models_path =
       constants::fname::TRAIN_MODEL_DIR + "/" + dataset_name + "/saved_models/";
-  const string model_structure_path =
-      saved_models_path + model_name + "-structure.json";
+  string model_structure_path;
+  if (model_structure_fname == "default") {
+    model_structure_path = saved_models_path + model_name + "-structure.json";
+  } else {
+    model_structure_path = saved_models_path + model_structure_fname;
+  }
   const string model_params_path = saved_models_path + model_params_fname;
 
   unique_ptr<ifstream> ifs_ptr;
   auto secrets_ifs =
       [&](const string& fname_suffix) -> const unique_ptr<ifstream>& {
-    ifs_ptr.reset(new ifstream(constants::fname::SECRETS_DIR + "/" +
-                                   secret_fname_prefix + fname_suffix,
-                               ios::binary));
+    string fname;
+    if (inference_mode == constants::mode::SINGLE) {
+      fname = dataset_name + "_" + secret_fname_prefix + fname_suffix;
+    } else {
+      fname = secret_fname_prefix + fname_suffix;
+    }
+    ifs_ptr.reset(
+        new ifstream(constants::fname::SECRETS_DIR + "/" + fname, ios::binary));
     return ifs_ptr;
   };
 
@@ -234,32 +246,32 @@ int main(int argc, char* argv[]) {
   cout << endl;
 
   /* Create seal keys */
-  seal::KeyGenerator keygen(*context);
-  auto secret_key = keygen.secret_key();
-  seal::PublicKey public_key;
-  keygen.create_public_key(public_key);
-  seal::RelinKeys relin_keys;
-  keygen.create_relin_keys(relin_keys);
+  // seal::KeyGenerator keygen(*context);
+  // auto secret_key = keygen.secret_key();
+  // seal::PublicKey public_key;
+  // keygen.create_public_key(public_key);
+  // seal::RelinKeys relin_keys;
+  // keygen.create_relin_keys(relin_keys);
 
   /* Load seal keys */
-  // shared_ptr<seal::SecretKey> secret_key(new seal::SecretKey);
-  // secret_key->load(*context,
-  // *secrets_ifs(constants::fname::SECRET_KEY_SUFFIX));
-  // shared_ptr<seal::PublicKey> public_key(new seal::PublicKey);
-  // public_key->load(*context,
-  // *secrets_ifs(constants::fname::PUBLIC_KEY_SUFFIX));
-  // shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
-  // relin_keys->load(*context,
-  // *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
-  // shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
-  // galois_keys->load(*context,
-  //                   *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
-  // GALOIS_KEYS.load(*context,
-  //                  *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  cout << "Loading seal keys..." << endl;
+  shared_ptr<seal::SecretKey> secret_key(new seal::SecretKey);
+  secret_key->load(*context, *secrets_ifs(constants::fname::SECRET_KEY_SUFFIX));
+  shared_ptr<seal::PublicKey> public_key(new seal::PublicKey);
+  public_key->load(*context, *secrets_ifs(constants::fname::PUBLIC_KEY_SUFFIX));
+  shared_ptr<seal::RelinKeys> relin_keys(new seal::RelinKeys);
+  relin_keys->load(*context, *secrets_ifs(constants::fname::RELIN_KEYS_SUFFIX));
+  shared_ptr<seal::GaloisKeys> galois_keys(new seal::GaloisKeys);
+  galois_keys->load(*context,
+                    *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  GALOIS_KEYS.load(*context,
+                   *secrets_ifs(constants::fname::GALOIS_KEYS_SUFFIX));
+  cout << "Finish loading keys!\n" << endl;
 
+  seal::Evaluator evaluator(*context);
   seal::CKKSEncoder encoder(*context);
-  seal::Encryptor encryptor(*context, public_key);
-  seal::Decryptor decryptor(*context, secret_key);
+  seal::Encryptor encryptor(*context, *public_key);
+  seal::Decryptor decryptor(*context, *secret_key);
 
   const size_t log2_f = std::log2(params.coeff_modulus()[1].value() - 1) + 1;
   const double scale = static_cast<double>(static_cast<uint64_t>(1) << log2_f);
@@ -268,14 +280,13 @@ int main(int argc, char* argv[]) {
   cout << "# of slots: " << slot_count << endl;
   cout << endl;
 
-  seal::Evaluator evaluator(*context);
   // shared_ptr<helper::he::SealTool> seal_tool =
   //     std::make_shared<helper::he::SealTool>(evaluator, encoder, *relin_keys,
   //                                            *galois_keys, slot_count,
   //                                            scale);
   shared_ptr<helper::he::SealTool> seal_tool =
       std::make_shared<helper::he::SealTool>(evaluator, encoder, decryptor,
-                                             relin_keys, slot_count, scale);
+                                             *relin_keys, slot_count, scale);
 
   /* Load test dataset for inference */
   cout << "Loading test images & labels..." << endl;
@@ -335,18 +346,17 @@ int main(int argc, char* argv[]) {
          << endl;
 
     /* Create galois keys */
-    // seal::KeyGenerator keygen(*context);
-    USE_ROTATION_STEPS.erase(0);
-    cout << "Creating " << USE_ROTATION_STEPS.size() << " galois keys..."
-         << endl;
-    const vector<int> rotation_steps(USE_ROTATION_STEPS.begin(),
-                                     USE_ROTATION_STEPS.end());
-    for (const int step : rotation_steps) {
-      cout << step << ", ";
-    }
-    cout << endl;
-    keygen.create_galois_keys(rotation_steps, GALOIS_KEYS);
-    cout << "Finish creating!\n" << endl;
+    // USE_ROTATION_STEPS.erase(0);
+    // cout << "Creating " << USE_ROTATION_STEPS.size() << " galois keys..."
+    //      << endl;
+    // const vector<int> rotation_steps(USE_ROTATION_STEPS.begin(),
+    //                                  USE_ROTATION_STEPS.end());
+    // for (const int step : rotation_steps) {
+    //   cout << step << ", ";
+    // }
+    // cout << endl;
+    // keygen.create_galois_keys(rotation_steps, GALOIS_KEYS);
+    // cout << "Finish creating!\n" << endl;
 
     /* Execute inference on test data */
     inference_image_count =
@@ -420,10 +430,10 @@ int main(int argc, char* argv[]) {
       for (size_t label = 0; label < label_size; label++) {
         decryptor.decrypt(enc_results[label], plain_result);
         encoder.decode(plain_result, tmp_results);
-        {
-          cout << "\tLabel: " << label << endl;
-          cout << "\tresults[0]: " << tmp_results[0] << endl;
-        }
+        // {
+        //   cout << "\tLabel: " << label << endl;
+        //   cout << "\tresults[0]: " << tmp_results[0] << endl;
+        // }
         results[i][label] = tmp_results[0];
       }
       auto decrypt_result_end_time = high_resolution_clock::now();
