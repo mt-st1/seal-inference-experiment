@@ -7,7 +7,7 @@ commands=(
   "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 -m 3 ./bin/main -P N16384_L5_50-30-60 -D mnist -M 3layer_cnn-square-BN --model-params 3layer_cnn-square-BN-99.35_200epoch-1223_1032-params.h5 -A square --fuse-layer --mode single --images 20)"
   # MNIST: Swish approx. (rg5_deg2, rg7_deg4) [Level: 5 or 7]
   "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 -m 3 ./bin/main -P N16384_L5_50-30-60 -D mnist -M 3layer_cnn-swish_rg5_deg2-BN --model-params 3layer_cnn-swish_rg5_deg2-BN-99.48_200epoch-1223_2212-params.h5 -A swish_rg5_deg2 --fuse-layer --opt-act --mode single --images 20)"
-  "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 -m 3 ./bin/main -P N16384_L7_50-30-60 -D mnist -M 3layer_cnn-swish_rg7_deg4-BN --model-params 3layer_cnn-swish_rg7_deg4-BN-99.52_200epoch-1224_0536-params.h5 -A swish_rg7_deg4 --fuse-layer --opt-act --mode single --images 20)"
+  "(OMP_NUM_THREADS=18 /usr/bin/time -v numactl -N 3 -m 3 ./bin/main -P N16384_L7_50-30-60 -D mnist -M 3layer_cnn-swish_rg7_deg4-BN --model-params 3layer_cnn-swish_rg7_deg4-BN-99.52_200epoch-1224_0536-params.h5 -A swish_rg7_deg4 --fuse-layer --opt-act --mode single --images 20)" # Transparent error has occurred
 
   # CIFAR-10(GAP): Square [Level: 7]
   "(OMP_NUM_THREADS=72 /usr/bin/time -v ./bin/main -P N16384_L7_50-30-60 -D cifar-10 -M 5layer_cnn-square-BN-GAP --model-params 5layer_cnn-square-BN-GAP-79.17_200epoch-0106_1855-params.h5 -A square --fuse-layer --opt-pool --mode single --images 20)"

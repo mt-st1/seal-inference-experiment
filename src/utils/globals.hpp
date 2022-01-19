@@ -36,7 +36,7 @@ extern EActivationType ACTIVATION_TYPE;
 // Rounding value for when encode too small value (depending on SEAL parameter)
 // if fabs(target_encode_value) < ROUND_THRESHOLD, we change target_encode_value
 // = ROUND_THRESHOLD * (target_encode_value/fabs(target_encode_value))
-constexpr double ROUND_THRESHOLD = 1e-7;
+extern double ROUND_THRESHOLD;
 
 extern seal::GaloisKeys GALOIS_KEYS;
 extern std::set<int> USE_ROTATION_STEPS;

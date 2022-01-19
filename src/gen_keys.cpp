@@ -101,10 +101,10 @@ int main(int argc, char* argv[]) {
   auto secrets_ofs =
       [&](const string& fname_suffix) -> const unique_ptr<ofstream>& {
     string fname;
-    if (dataset_name == "mnist" || "cifar-10") {
+    if (dataset_name == "mnist" || dataset_name == "cifar-10") {
       fname = dataset_name + "_" + fname_prefix + fname_suffix;
     } else {
-      fname = fname_prefix + fname_prefix;
+      fname = fname_prefix + fname_suffix;
     }
     ofs_ptr.reset(
         new ofstream(constants::fname::SECRETS_DIR + "/" + fname, ios::binary));

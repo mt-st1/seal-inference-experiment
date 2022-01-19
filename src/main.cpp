@@ -175,6 +175,14 @@ int main(int argc, char* argv[]) {
   size_t inference_image_count = parser.get<size_t>("images");
   size_t inference_trial_count = parser.get<size_t>("trials");
 
+  if (inference_mode == constants::mode::SINGLE &&
+      activation_str == "swish_rg7_deg4" &&
+      dataset_name == constants::dataset::MNIST) {
+    ROUND_THRESHOLD = 1e-6;
+  } else {
+    ROUND_THRESHOLD = 1e-7;
+  }
+
   const string saved_models_path =
       constants::fname::TRAIN_MODEL_DIR + "/" + dataset_name + "/saved_models/";
   string model_structure_path;
