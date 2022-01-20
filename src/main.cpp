@@ -245,6 +245,15 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  HMul_COUNT = 0;
+  HMulPlain_COUNT = 0;
+  HSquare_COUNT = 0;
+  HAdd_COUNT = 0;
+  HAddPlain_COUNT = 0;
+  HRotate_COUNT = 0;
+  HRescale_COUNT = 0;
+  HRelinearize_COUNT = 0;
+
   /* Load seal params */
   seal::EncryptionParameters params;
   params.load(*secrets_ifs(constants::fname::PARAMS_SUFFIX));
@@ -437,6 +446,27 @@ int main(int argc, char* argv[]) {
            << " sec)\n"
            << endl;
 
+      {
+        cout << "# of Homomorphic operations:" << endl;
+        cout << "\t HMulPlain count -> " << HMulPlain_COUNT << endl;
+        cout << "\t HMul count -> " << HMul_COUNT << endl;
+        cout << "\t HSquare count -> " << HSquare_COUNT << endl;
+        cout << "\t HAddPlain count -> " << HAddPlain_COUNT << endl;
+        cout << "\t HAdd count -> " << HAdd_COUNT << endl;
+        cout << "\t HRotate count -> " << HRotate_COUNT << endl;
+        cout << "\t HRescale count -> " << HRescale_COUNT << endl;
+        cout << "\t HRelinearize count -> " << HRelinearize_COUNT << endl;
+        cout << endl;
+        HMul_COUNT = 0;
+        HMulPlain_COUNT = 0;
+        HSquare_COUNT = 0;
+        HAdd_COUNT = 0;
+        HAddPlain_COUNT = 0;
+        HRotate_COUNT = 0;
+        HRescale_COUNT = 0;
+        HRelinearize_COUNT = 0;
+      }
+
       /* Decrypt inference results */
       cout << "\tDecrypting inference result..." << endl;
       auto decrypt_result_begin_time = high_resolution_clock::now();
@@ -587,6 +617,27 @@ int main(int argc, char* argv[]) {
              << " sec)\n"
              << "\t  encrypted results size: " << enc_results.size() << "\n"
              << endl;
+
+        {
+          cout << "# of Homomorphic operations:" << endl;
+          cout << "\t HMulPlain count -> " << HMulPlain_COUNT << endl;
+          cout << "\t HMul count -> " << HMul_COUNT << endl;
+          cout << "\t HSquare count -> " << HSquare_COUNT << endl;
+          cout << "\t HAddPlain count -> " << HAddPlain_COUNT << endl;
+          cout << "\t HAdd count -> " << HAdd_COUNT << endl;
+          cout << "\t HRotate count -> " << HRotate_COUNT << endl;
+          cout << "\t HRescale count -> " << HRescale_COUNT << endl;
+          cout << "\t HRelinearize count -> " << HRelinearize_COUNT << endl;
+          cout << endl;
+          HMul_COUNT = 0;
+          HMulPlain_COUNT = 0;
+          HSquare_COUNT = 0;
+          HAdd_COUNT = 0;
+          HAddPlain_COUNT = 0;
+          HRotate_COUNT = 0;
+          HRescale_COUNT = 0;
+          HRelinearize_COUNT = 0;
+        }
 
         /* Decrypt inference results */
         cout << "\tDecrypting inference results..." << endl;

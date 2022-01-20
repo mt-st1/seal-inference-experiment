@@ -32,14 +32,19 @@ void Linear::forward(seal::Ciphertext& x_ct,
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   seal::Ciphertext wx_ct;
 #ifdef _OPENMP
-#pragma omp parallel for private(wx_ct)
+#pragma omp parallel for private(wx_ct) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t i = 0; i < output_c; ++i) {
     seal_tool_->evaluator().multiply_plain(x_ct, weights_pts_[i], wx_ct);
     seal_tool_->evaluator().rescale_to_next_inplace(wx_ct);
+    HMulPlain_COUNT++;
+    HRescale_COUNT++;
     helper::he::total_sum(wx_ct, y_cts[i], seal_tool_->slot_count(),
                           seal_tool_->evaluator(), GALOIS_KEYS);
     y_cts[i].scale() = seal_tool_->scale();
+    std::size_t rotate_count = std::ceil(std::log2(seal_tool_->slot_count()));
+    HRotate_COUNT += rotate_count;
+    HAdd_COUNT += rotate_count;
     // if (i == 0) {
     //   seal::Plaintext plain_y;
     //   std::vector<double> y_values, bias_values;
@@ -50,6 +55,7 @@ void Linear::forward(seal::Ciphertext& x_ct,
     //   }
     // }
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
+    HAddPlain_COUNT++;
   }
 
   // {
@@ -88,21 +94,25 @@ void Linear::forward(std::vector<seal::Ciphertext>& x_cts) {
   seal::Ciphertext weighted_unit;
 
 #ifdef _OPENMP
-#pragma omp parallel for private(weighted_unit)
+#pragma omp parallel for private(weighted_unit) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t oc = 0; oc < output_c; ++oc) {
     for (std::size_t ic = 0; ic < input_c; ++ic) {
       seal_tool_->evaluator().multiply_plain(x_cts[ic], plain_weights_[oc][ic],
                                              weighted_unit);
+      HMulPlain_COUNT++;
       if (ic == 0) {
         output[oc] = weighted_unit;
       } else {
         seal_tool_->evaluator().add_inplace(output[oc], weighted_unit);
+        HAdd_COUNT++;
       }
     }
     seal_tool_->evaluator().rescale_to_next_inplace(output[oc]);
     output[oc].scale() = seal_tool_->scale();
     seal_tool_->evaluator().add_plain_inplace(output[oc], plain_biases_[oc]);
+    HRescale_COUNT++;
+    HAddPlain_COUNT++;
   }
 
   x_cts.resize(output_c);

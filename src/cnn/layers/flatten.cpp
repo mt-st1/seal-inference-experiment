@@ -41,13 +41,15 @@ void Flatten::forward(std::vector<seal::Ciphertext>& x_cts,
                       seal::Ciphertext& y_ct) const {
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t i = 0; i < x_cts.size(); ++i) {
     seal_tool_->evaluator().rotate_vector_inplace(x_cts[i], rotation_map_[i],
                                                   GALOIS_KEYS);
+    HRotate_COUNT++;
   }
   seal_tool_->evaluator().add_many(x_cts, y_ct);
+  HAdd_COUNT += (x_cts.size() - 1);
 }
 
 }  // namespace cnn::encrypted

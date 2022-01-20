@@ -131,7 +131,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   //   }
   // }
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (size_t ci = 0; ci < input_channel_size; ++ci) {
     for (size_t i = 0; i < filter_hw_size; ++i) {
@@ -139,13 +139,15 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
       size_t mid_cts_idx = ci * filter_hw_size + i;
       seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
                                             GALOIS_KEYS, rotated_ct);
+      HRotate_COUNT++;
       for (size_t fi = 0; fi < filter_count; ++fi) {
         mid_cts[fi][mid_cts_idx] = rotated_ct;
       }
     }
   }
+
 #ifdef _OPENMP
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(3) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (size_t fi = 0; fi < filter_count; ++fi) {
     for (size_t ci = 0; ci < input_channel_size; ++ci) {
@@ -170,6 +172,7 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
         // }
         seal_tool_->evaluator().multiply_plain_inplace(
             mid_cts[fi][ci * filter_hw_size + i], filters_pts_[fi][ci][i]);
+        HMulPlain_COUNT++;
       }
     }
   }
@@ -195,15 +198,18 @@ void Conv2d::forward(std::vector<seal::Ciphertext>& x_cts,
   // }
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (size_t i = 0; i < filter_count; ++i) {
     seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+    HAdd_COUNT += (input_channel_size * filter_hw_size - 1);
     seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
+    HRescale_COUNT++;
     y_cts[i].scale() = seal_tool_->scale();
     // seal_tool_->evaluator().mod_switch_to_inplace(biases_pts_[i],
     //                                               y_cts[i].parms_id());
     seal_tool_->evaluator().add_plain_inplace(y_cts[i], biases_pts_[i]);
+    HAddPlain_COUNT++;
   }
 
   // {
@@ -303,7 +309,7 @@ void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {
 #ifdef _OPENMP
 #pragma omp parallel for collapse(2) private(                          \
     target_top, target_left, target_x, target_y, within_range_counter, \
-    weighted_pixel)
+    weighted_pixel) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t oc = 0; oc < output_c; ++oc) {
     for (std::size_t oh = 0; oh < output_h; ++oh) {
@@ -320,20 +326,24 @@ void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {
               seal_tool_->evaluator().multiply_plain(
                   x_ct_3d[ic][target_y][target_x],
                   plain_filters_[oc][ic][fh][fw], weighted_pixel);
+              HMulPlain_COUNT++;
               if (!output_exist_map[oc][oh][ow]) {
                 output[oc][oh][ow] = weighted_pixel;
                 output_exist_map[oc][oh][ow] = true;
               } else {
                 seal_tool_->evaluator().add_inplace(output[oc][oh][ow],
                                                     weighted_pixel);
+                HAdd_COUNT++;
               }
             }
           }
         }
         seal_tool_->evaluator().rescale_to_next_inplace(output[oc][oh][ow]);
+        HRescale_COUNT++;
         output[oc][oh][ow].scale() = seal_tool_->scale();
         seal_tool_->evaluator().add_plain_inplace(output[oc][oh][ow],
                                                   plain_biases_[oc]);
+        HAddPlain_COUNT++;
       }
     }
   }

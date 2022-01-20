@@ -19,3 +19,12 @@ std::vector<std::vector<int>> KERNEL_HW_ROTATION_STEP;
 std::vector<int> FLATTEN_ROTATION_STEP;
 std::vector<int> INPUT_UNITS_SLOT_IDX;
 std::vector<int> OUTPUT_UNITS_SLOT_IDX;
+
+unsigned long long HMulPlain_COUNT;
+unsigned long long HMul_COUNT;
+unsigned long long HSquare_COUNT;
+unsigned long long HAddPlain_COUNT;
+unsigned long long HAdd_COUNT;
+unsigned long long HRotate_COUNT;
+unsigned long long HRescale_COUNT;
+unsigned long long HRelinearize_COUNT;

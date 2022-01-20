@@ -40,12 +40,13 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
   if (OPT_OPTION.enable_fold_pool_coeff && !is_gap_) {
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
                                               GALOIS_KEYS, mid_cts[ci][i]);
+        HRotate_COUNT++;
       }
     }
 
@@ -65,10 +66,11 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     // }
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (std::size_t i = 0; i < input_channel_size; ++i) {
       seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+      HAdd_COUNT += (pool_hw_size_ - 1);
       y_cts[i].scale() = seal_tool_->scale();
     }
 
@@ -83,12 +85,13 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     // }
   } else {
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (std::size_t ci = 0; ci < input_channel_size; ++ci) {
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
                                               GALOIS_KEYS, mid_cts[ci][i]);
+        HRotate_COUNT++;
         // seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
         //                                                plain_mul_factor_);
         // seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);
@@ -96,13 +99,16 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
     }
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (std::size_t i = 0; i < input_channel_size; ++i) {
       seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
       seal_tool_->evaluator().multiply_plain_inplace(y_cts[i],
                                                      plain_mul_factor_);
+      HAdd_COUNT += (pool_hw_size_ - 1);
+      HMulPlain_COUNT++;
       seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
+      HRescale_COUNT++;
       y_cts[i].scale() = seal_tool_->scale();
     }
   }
@@ -164,7 +170,7 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
   if (OPT_OPTION.enable_fold_pool_coeff) {
 #ifdef _OPENMP
 #pragma omp parallel for collapse(2) private(target_top, target_left, \
-                                             target_x, target_y)
+                                             target_x, target_y) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (size_t oc = 0; oc < output_c; ++oc) {
       for (size_t oh = 0; oh < output_h; ++oh) {
@@ -182,6 +188,7 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
               } else {
                 seal_tool_->evaluator().add_inplace(
                     output[oc][oh][ow], x_ct_3d[oc][target_y][target_x]);
+                HAdd_COUNT++;
               }
             }
           }
@@ -191,7 +198,7 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
   } else {
 #ifdef _OPENMP
 #pragma omp parallel for collapse(2) private(target_top, target_left, \
-                                             target_x, target_y)
+                                             target_x, target_y) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
     for (size_t oc = 0; oc < output_c; ++oc) {
       for (size_t oh = 0; oh < output_h; ++oh) {
@@ -209,12 +216,15 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
               } else {
                 seal_tool_->evaluator().add_inplace(
                     output[oc][oh][ow], x_ct_3d[oc][target_y][target_x]);
+                HAdd_COUNT++;
               }
             }
           }
           seal_tool_->evaluator().multiply_plain_inplace(output[oc][oh][ow],
                                                          plain_mul_factor_);
           seal_tool_->evaluator().rescale_to_next_inplace(output[oc][oh][ow]);
+          HMulPlain_COUNT++;
+          HRescale_COUNT++;
         }
       }
     }

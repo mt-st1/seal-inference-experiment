@@ -49,3 +49,12 @@ extern std::vector<std::vector<int>> KERNEL_HW_ROTATION_STEP;
 extern std::vector<int> FLATTEN_ROTATION_STEP;
 extern std::vector<int> INPUT_UNITS_SLOT_IDX;
 extern std::vector<int> OUTPUT_UNITS_SLOT_IDX;
+
+extern unsigned long long HMulPlain_COUNT;
+extern unsigned long long HMul_COUNT;
+extern unsigned long long HSquare_COUNT;
+extern unsigned long long HAddPlain_COUNT;
+extern unsigned long long HAdd_COUNT;
+extern unsigned long long HRotate_COUNT;
+extern unsigned long long HRescale_COUNT;
+extern unsigned long long HRelinearize_COUNT;

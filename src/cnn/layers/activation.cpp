@@ -46,7 +46,7 @@ void Activation::forward(std::vector<seal::Ciphertext>& x_cts,
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (size_t i = 0; i < input_channel_size; ++i) {
     y_cts[i] = x_cts[i];
@@ -80,6 +80,9 @@ void Activation::square(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square_inplace(x);
   seal_tool_->evaluator().relinearize_inplace(x, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
 }
 
 void Activation::deg2_poly_act(seal::Ciphertext& x) const {
@@ -92,11 +95,15 @@ void Activation::deg2_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
   // Reduce modulus of x (Level: l-l)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
 
   // Calculate ax^2 (Level: l-2)
   seal_tool_->evaluator().multiply_plain(x2, plain_poly_coeffs_[0], ax2);
   // Calculate bx (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[1]);
+  HMulPlain_COUNT += 2;
 
   // Normalize scales
   ax2.scale() = seal_tool_->scale();
@@ -107,6 +114,8 @@ void Activation::deg2_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[2]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
 }
 
 void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
@@ -118,6 +127,9 @@ void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   // Calculate b'x (Level: l-1)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[0]);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HMulPlain_COUNT++;
 
   // Normalize scales
   x2.scale() = seal_tool_->scale();
@@ -128,6 +140,9 @@ void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[1]);
+  HAdd_COUNT++;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 void Activation::deg4_poly_act(seal::Ciphertext& x) const {
@@ -138,10 +153,16 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square(x, x2);
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Calculate x^4 (Level: l-2)
   seal_tool_->evaluator().square(x2, x4);
   seal_tool_->evaluator().relinearize_inplace(x4, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x4);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Reduce modulus of x^2 (Level: l-2)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x2);
   // Reduce modulus of x (Level: l-2)
@@ -154,6 +175,7 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().multiply_plain_inplace(x2, plain_poly_coeffs_[1]);
   // Calculate cx (Level: l-3)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[2]);
+  HMulPlain_COUNT += 3;
 
   // Normalize scales
   x4.scale() = seal_tool_->scale();
@@ -166,6 +188,9 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[3]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
@@ -176,16 +201,22 @@ void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square(x, x2);
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Calculate x^4 (Level: l-2)
   seal_tool_->evaluator().square(x2, x4);
   seal_tool_->evaluator().relinearize_inplace(x4, seal_tool_->relin_keys());
   // Reduce modulus of x (Level: l-1)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
 
   // Calculate b'x^2 (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x2, plain_poly_coeffs_[0]);
   // Calculate c'x (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[1]);
+  HMulPlain_COUNT += 2;
 
   // Normalize scales
   x4.scale() = seal_tool_->scale();
@@ -197,6 +228,9 @@ void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[2]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 }  // namespace cnn::encrypted
@@ -263,7 +297,7 @@ void Activation::forward(types::Ciphertext3d& x_ct_3d) {
             << input_w << std::endl;
 
 #ifdef _OPENMP
-#pragma omp parallel for collapse(3)
+#pragma omp parallel for collapse(3) reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t c = 0; c < input_c; ++c) {
     for (std::size_t h = 0; h < input_h; ++h) {
@@ -281,7 +315,7 @@ void Activation::forward(std::vector<seal::Ciphertext>& x_cts) {
   std::cout << "\t  input size: " << input_c << std::endl;
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:HMulPlain_COUNT,HMul_COUNT,HSquare_COUNT,HAddPlain_COUNT,HAdd_COUNT,HRotate_COUNT,HRescale_COUNT,HRelinearize_COUNT)
 #endif
   for (std::size_t c = 0; c < input_c; ++c) {
     activate(x_cts[c]);
@@ -312,6 +346,9 @@ void Activation::square(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square_inplace(x);
   seal_tool_->evaluator().relinearize_inplace(x, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
 }
 
 void Activation::deg2_poly_act(seal::Ciphertext& x) const {
@@ -324,11 +361,15 @@ void Activation::deg2_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
   // Reduce modulus of x (Level: l-l)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
 
   // Calculate ax^2 (Level: l-2)
   seal_tool_->evaluator().multiply_plain(x2, plain_poly_coeffs_[0], ax2);
   // Calculate bx (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[1]);
+  HMulPlain_COUNT += 2;
 
   // Normalize scales
   ax2.scale() = seal_tool_->scale();
@@ -339,6 +380,8 @@ void Activation::deg2_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[2]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
 }
 
 void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
@@ -350,6 +393,9 @@ void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   // Calculate b'x (Level: l-1)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[0]);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HMulPlain_COUNT++;
 
   // Normalize scales
   x2.scale() = seal_tool_->scale();
@@ -360,6 +406,9 @@ void Activation::deg2_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[1]);
+  HAdd_COUNT++;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 void Activation::deg4_poly_act(seal::Ciphertext& x) const {
@@ -370,10 +419,16 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square(x, x2);
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Calculate x^4 (Level: l-2)
   seal_tool_->evaluator().square(x2, x4);
   seal_tool_->evaluator().relinearize_inplace(x4, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x4);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Reduce modulus of x^2 (Level: l-2)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x2);
   // Reduce modulus of x (Level: l-2)
@@ -386,6 +441,7 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().multiply_plain_inplace(x2, plain_poly_coeffs_[1]);
   // Calculate cx (Level: l-3)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[2]);
+  HMulPlain_COUNT += 3;
 
   // Normalize scales
   x4.scale() = seal_tool_->scale();
@@ -398,6 +454,9 @@ void Activation::deg4_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[3]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
@@ -408,16 +467,22 @@ void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().square(x, x2);
   seal_tool_->evaluator().relinearize_inplace(x2, seal_tool_->relin_keys());
   seal_tool_->evaluator().rescale_to_next_inplace(x2);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
+  HRescale_COUNT++;
   // Calculate x^4 (Level: l-2)
   seal_tool_->evaluator().square(x2, x4);
   seal_tool_->evaluator().relinearize_inplace(x4, seal_tool_->relin_keys());
   // Reduce modulus of x (Level: l-1)
   seal_tool_->evaluator().mod_switch_to_next_inplace(x);
+  HSquare_COUNT++;
+  HRelinearize_COUNT++;
 
   // Calculate b'x^2 (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x2, plain_poly_coeffs_[0]);
   // Calculate c'x (Level: l-2)
   seal_tool_->evaluator().multiply_plain_inplace(x, plain_poly_coeffs_[1]);
+  HMulPlain_COUNT += 2;
 
   // Normalize scales
   x4.scale() = seal_tool_->scale();
@@ -429,6 +494,9 @@ void Activation::deg4_opt_poly_act(seal::Ciphertext& x) const {
   seal_tool_->evaluator().rescale_to_next_inplace(x);
   x.scale() = seal_tool_->scale();
   seal_tool_->evaluator().add_plain_inplace(x, plain_poly_coeffs_[2]);
+  HAdd_COUNT += 2;
+  HRescale_COUNT++;
+  HAddPlain_COUNT++;
 }
 
 }  // namespace cnn::encrypted::batch
