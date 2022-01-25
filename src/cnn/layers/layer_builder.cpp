@@ -912,9 +912,20 @@ std::shared_ptr<Layer> build_conv_2d_fused_batch_norm(
             // std::cout << "fused_weight: " << fused_weight << std::endl;
             round_value(fused_weight);
           }
-          for (int i = 0; i < OUTPUT_H; ++i) {
-            for (int j = 0; j < OUTPUT_W; ++j) {
-              weight_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = fused_weight;
+          if (INPUT_H == OUTPUT_H && INPUT_W == OUTPUT_W) {
+            int rotation_step = KERNEL_HW_ROTATION_STEP[fh][fw];
+            for (int i = std::max(0, 1 - static_cast<int>(fh));
+                 i < OUTPUT_H - std::max(0, static_cast<int>(fh) - 1); ++i) {
+              for (int j = std::max(0, 1 - static_cast<int>(fw));
+                   j < OUTPUT_W - std::max(0, static_cast<int>(fw) - 1); ++j) {
+                weight_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = fused_weight;
+              }
+            }
+          } else {
+            for (int i = 0; i < OUTPUT_H; ++i) {
+              for (int j = 0; j < OUTPUT_W; ++j) {
+                weight_values_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = fused_weight;
+              }
             }
           }
           seal_tool->encoder().encode(weight_values_in_slot, seal_tool->scale(),
