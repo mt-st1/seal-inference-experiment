@@ -49,6 +49,16 @@ Network NetworkBuilder::build(
         network.add_layer(
             LayerBuilder::build(layer, model_params_path, seal_tool));
       }
+      // {
+      //   std::cout << "OUTPUT_HW_SLOT_IDX(" << OUTPUT_H << "x" << OUTPUT_W
+      //             << "):" << std::endl;
+      //   for (int i = 0; i < OUTPUT_H; ++i) {
+      //     for (int j = 0; j < OUTPUT_W; ++j) {
+      //       std::cout << OUTPUT_HW_SLOT_IDX[i][j] << ", ";
+      //     }
+      //     std::cout << std::endl;
+      //   }
+      // }
     }
   } else {
     for (picojson::array::const_iterator it = layers.cbegin(),

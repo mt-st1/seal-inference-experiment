@@ -29,6 +29,7 @@ public:
             const std::size_t pool_hw_size,
             const seal::Plaintext& plain_mul_factor,
             const std::vector<int> rotation_map,
+            const bool is_gap,
             const std::shared_ptr<helper::he::SealTool> seal_tool);
   AvgPool2d();
   ~AvgPool2d();
@@ -40,6 +41,7 @@ private:
   std::size_t pool_hw_size_;
   seal::Plaintext plain_mul_factor_;
   std::vector<int> rotation_map_;
+  bool is_gap_;
 };
 
 }  // namespace cnn::encrypted

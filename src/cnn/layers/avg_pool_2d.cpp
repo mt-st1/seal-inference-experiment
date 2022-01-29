@@ -15,12 +15,14 @@ AvgPool2d::AvgPool2d(const std::string layer_name,
                      const std::size_t pool_hw_size,
                      const seal::Plaintext& plain_mul_factor,
                      const std::vector<int> rotation_map,
+                     const bool is_gap,
                      const std::shared_ptr<helper::he::SealTool> seal_tool)
     : Layer(ELayerType::AVG_POOL_2D, layer_name, seal_tool),
       pool_hw_size_(pool_hw_size),
       plain_mul_factor_(plain_mul_factor),
-      rotation_map_(rotation_map) {
-  if (!OPT_OPTION.enable_fold_pool_coeff) {
+      rotation_map_(rotation_map),
+      is_gap_(is_gap) {
+  if (!OPT_OPTION.enable_fold_pool_coeff || is_gap_) {
     CONSUMED_LEVEL++;
   }
 }
@@ -36,7 +38,7 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
   y_cts.resize(input_channel_size);
 
   std::cout << "\tForwarding " << layer_name() << "..." << std::endl;
-  if (OPT_OPTION.enable_fold_pool_coeff) {
+  if (OPT_OPTION.enable_fold_pool_coeff && !is_gap_) {
 #ifdef _OPENMP
 #pragma omp parallel for collapse(2)
 #endif
@@ -47,6 +49,21 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
       }
     }
 
+    // {
+    //   for (std::size_t i = 0; i < pool_hw_size_; ++i) {
+    //     seal::Plaintext plain_x;
+    //     std::vector<double> x_values;
+    //     std::cout << "Rotated (" << rotation_map_[i] << ") mid_cts[0][" << i
+    //               << "]:" << std::endl;
+    //     seal_tool_->decryptor().decrypt(mid_cts[0][i], plain_x);
+    //     seal_tool_->encoder().decode(plain_x, x_values);
+    //     for (int s = 0; s < 30; ++s) {
+    //       std::cout << x_values[s] << ", ";
+    //     }
+    //     std::cout << std::endl;
+    //   }
+    // }
+
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
@@ -54,6 +71,16 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
       seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
       y_cts[i].scale() = seal_tool_->scale();
     }
+
+    // {
+    //   seal::Plaintext plain_y;
+    //   std::vector<double> y_values(seal_tool_->slot_count());
+    //   seal_tool_->decryptor().decrypt(y_cts[0], plain_y);
+    //   seal_tool_->encoder().decode(plain_y, y_values);
+    //   for (int s = 0; s < 10; ++s) {
+    //     std::cout << "y_values[" << s << "]: " << y_values[s] << std::endl;
+    //   }
+    // }
   } else {
 #ifdef _OPENMP
 #pragma omp parallel for collapse(2)
@@ -62,8 +89,8 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
       for (std::size_t i = 0; i < pool_hw_size_; ++i) {
         seal_tool_->evaluator().rotate_vector(x_cts[ci], rotation_map_[i],
                                               GALOIS_KEYS, mid_cts[ci][i]);
-        seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
-                                                       plain_mul_factor_);
+        // seal_tool_->evaluator().multiply_plain_inplace(mid_cts[ci][i],
+        //                                                plain_mul_factor_);
         // seal_tool_->evaluator().rescale_to_next_inplace(mid_cts[ci][i]);
       }
     }
@@ -73,6 +100,8 @@ void AvgPool2d::forward(std::vector<seal::Ciphertext>& x_cts,
 #endif
     for (std::size_t i = 0; i < input_channel_size; ++i) {
       seal_tool_->evaluator().add_many(mid_cts[i], y_cts[i]);
+      seal_tool_->evaluator().multiply_plain_inplace(y_cts[i],
+                                                     plain_mul_factor_);
       seal_tool_->evaluator().rescale_to_next_inplace(y_cts[i]);
       y_cts[i].scale() = seal_tool_->scale();
     }

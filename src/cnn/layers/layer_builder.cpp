@@ -404,10 +404,34 @@ std::shared_ptr<Layer> build_avg_pool_2d(
     }
   }
 
+  bool is_gap = false;
   seal::Plaintext plain_mul_factor;
   std::size_t pool_hw_size = pool_height * pool_width;
 
-  if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+  if (INPUT_H == pool_height &&
+      INPUT_W == pool_width) {  // GAP (Global Average Pooling)
+    is_gap = true;
+    double pool_mul_factor = 1.0 / pool_hw_size;
+    if (OPT_OPTION.enable_fold_act_coeff && SHOULD_MUL_ACT_COEFF) {
+      pool_mul_factor *= POLY_ACT_HIGHEST_DEG_COEFF;
+      SHOULD_MUL_ACT_COEFF = false;
+    }
+    if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
+      pool_mul_factor *= CURRENT_POOL_MUL_COEFF;
+      SHOULD_MUL_POOL_COEFF = false;
+    }
+    std::vector<double> pool_mul_factors_in_slot(seal_tool->slot_count(), 0);
+    for (int i = 0; i < OUTPUT_H; ++i) {
+      for (size_t j = 0; j < OUTPUT_W; ++j) {
+        pool_mul_factors_in_slot[OUTPUT_HW_SLOT_IDX[i][j]] = pool_mul_factor;
+      }
+    }
+    seal_tool->encoder().encode(pool_mul_factors_in_slot, seal_tool->scale(),
+                                plain_mul_factor);
+    for (std::size_t lv = 0; lv < CONSUMED_LEVEL; ++lv) {
+      seal_tool->evaluator().mod_switch_to_next_inplace(plain_mul_factor);
+    }
+  } else if (OPT_OPTION.enable_fold_pool_coeff && SHOULD_MUL_POOL_COEFF) {
     CURRENT_POOL_MUL_COEFF *= (1.0 / pool_hw_size);
   } else if (OPT_OPTION.enable_fold_pool_coeff) {
     CURRENT_POOL_MUL_COEFF = 1.0 / pool_hw_size;
@@ -455,7 +479,7 @@ std::shared_ptr<Layer> build_avg_pool_2d(
 
   return std::make_shared<AvgPool2d>(layer_name, pool_hw_size, plain_mul_factor,
                                      flatten_2d_vector(KERNEL_HW_ROTATION_STEP),
-                                     seal_tool);
+                                     is_gap, seal_tool);
 }
 
 std::shared_ptr<Layer> build_activation(
@@ -699,7 +723,7 @@ std::shared_ptr<Layer> build_flatten(
   //   std::cout << "slot_size_gap_full_period: " << slot_size_gap_full_period
   //             << std::endl;
   // }
-  if (INPUT_H == 1 && INPUT_W == 1) {
+  if (INPUT_H == 1 && INPUT_W == 1) {  // in case of GAP
     FLATTEN_ROTATION_STEP.resize(INPUT_C);
     for (int i = 0; i < INPUT_C; ++i) {
       FLATTEN_ROTATION_STEP[i] = -1 * i;

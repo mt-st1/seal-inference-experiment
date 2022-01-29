@@ -397,26 +397,31 @@ int main(int argc, char* argv[]) {
            << endl;
       // {
       //   cout << "Image [" << i << "]:" << endl;
-      //   size_t counter = 0;
-      //   for (size_t h = 0; h < input_h; ++h) {
-      //     for (size_t w = 0; w < input_w; ++w) {
-      //       cout << test_images[i][counter++] << ", ";
+      //   // size_t counter = 0;
+      //   size_t pos;
+      //   for (size_t c = 0; c < input_c; ++c) {
+      //     cout << "Channel " << c << endl;
+      //     for (size_t h = 0; h < input_h; ++h) {
+      //       for (size_t w = 0; w < input_w; ++w) {
+      //         pos = c * (input_h * input_w) + h * input_w + w;
+      //         cout << test_images[i][pos] << ", ";
+      //       }
+      //       cout << endl;
       //     }
-      //     cout << endl;
       //   }
-      //   seal::Ciphertext enc_image_channel =
-      //   enc_channel_wise_packed_image[0]; seal::Plaintext plain_y;
-      //   std::vector<double> y_values(seal_tool->slot_count());
-      //   seal_tool->decryptor().decrypt(enc_image_channel, plain_y);
-      //   seal_tool->encoder().decode(plain_y, y_values);
-      //   cout << "Decrypted image [" << i << "]: " << endl;
-      //   counter = 0;
-      //   for (size_t h = 0; h < input_h; ++h) {
-      //     for (size_t w = 0; w < input_w; ++w) {
-      //       cout << y_values[counter++] << ", ";
-      //     }
-      //     cout << endl;
-      //   }
+      //   // seal::Ciphertext enc_image_channel =
+      //   // enc_channel_wise_packed_image[0]; seal::Plaintext plain_y;
+      //   // std::vector<double> y_values(seal_tool->slot_count());
+      //   // seal_tool->decryptor().decrypt(enc_image_channel, plain_y);
+      //   // seal_tool->encoder().decode(plain_y, y_values);
+      //   // cout << "Decrypted image [" << i << "]: " << endl;
+      //   // counter = 0;
+      //   // for (size_t h = 0; h < input_h; ++h) {
+      //   //   for (size_t w = 0; w < input_w; ++w) {
+      //   //     cout << y_values[counter++] << ", ";
+      //   //   }
+      //   //   cout << endl;
+      //   // }
       // }
 
       /* Execute inference */
