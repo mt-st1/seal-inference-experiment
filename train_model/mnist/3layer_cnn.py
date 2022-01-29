@@ -142,7 +142,7 @@ if gap_enabled:
 SAVE_MODEL_DIR_NAME = "saved_models"
 PRUNE_MODEL_DIR_NAME = "pruned_models"
 BEST_MODEL_STATE_DICT_PATH = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-{md_str}-best.pt"
-PRUNE_MODEL_STATE_DICT_BASE = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-round"
+PRUNE_MODEL_STATE_DICT_BASE = f"{CUR_DIR}/{SAVE_MODEL_DIR_NAME}/{BASE_FILE_NAME}-prune_conv2_0.4-round"
 
 
 # %%
@@ -300,9 +300,9 @@ def prune_model(model):
         plan.exec()
 
     if gap_enabled:
-        linear_layer_prune_probs = [0.0, 0.2, 0.0]
+        linear_layer_prune_probs = [0.0, 0.4, 0.0]
     else:
-        linear_layer_prune_probs = [0.0, 0.2, 0.3]
+        linear_layer_prune_probs = [0.0, 0.4, 0.3]
     idx = 0
     for m in model.modules():
         if isinstance(m, nn.Conv2d):
