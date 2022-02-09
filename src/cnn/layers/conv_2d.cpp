@@ -301,7 +301,7 @@ void Conv2d::forward(types::Ciphertext3d& x_ct_3d) {
   seal::Ciphertext weighted_pixel;
 
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(                          \
+#pragma omp parallel for collapse(3) private(                          \
     target_top, target_left, target_x, target_y, within_range_counter, \
     weighted_pixel)
 #endif

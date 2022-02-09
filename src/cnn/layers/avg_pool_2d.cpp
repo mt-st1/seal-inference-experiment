@@ -163,7 +163,7 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
 
   if (OPT_OPTION.enable_fold_pool_coeff) {
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(target_top, target_left, \
+#pragma omp parallel for collapse(3) private(target_top, target_left, \
                                              target_x, target_y)
 #endif
     for (size_t oc = 0; oc < output_c; ++oc) {
@@ -190,7 +190,7 @@ void AvgPool2d::forward(types::Ciphertext3d& x_ct_3d) {
     }
   } else {
 #ifdef _OPENMP
-#pragma omp parallel for collapse(2) private(target_top, target_left, \
+#pragma omp parallel for collapse(3) private(target_top, target_left, \
                                              target_x, target_y)
 #endif
     for (size_t oc = 0; oc < output_c; ++oc) {
