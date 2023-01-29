@@ -1,4 +1,6 @@
 # seal-inference-experiment
+**[NOTE]** This repository is currently not maintained, so please refer [yamanalab/latency-aware-cnn-inference](https://github.com/yamanalab/latency-aware-cnn-inference).
+
 Privacy preserving CNN inference over homomorphic encryption (using [Microsoft SEAL version 3.6.6](https://github.com/microsoft/SEAL/tree/3.6.6))
 
 Supports both latency-oriented single image inference (channel-wise packing) and throughput-oriented multiple images inference (batch-axis packing).
